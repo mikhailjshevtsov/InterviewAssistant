@@ -7,7 +7,7 @@ DTO описаны Pydantic-моделями в `app/schemas/` и не связ�
 
 ## 2. VacancyService
 
-`analyze(vacancy_text: str) -> VacancyAnalysis`
+`analyze(vacancy_id: int) -> VacancyAnalysis`
 
 Ответ:
 - position: str | null
@@ -25,7 +25,16 @@ DTO описаны Pydantic-моделями в `app/schemas/` и не связ�
 
 ## 3. QuestionService
 
-`generate(vacancy_analysis: VacancyAnalysis, knowledge_items: list[InterviewQuestion]) -> QuestionSet`
+`generate(vacancy_analysis: VacancyAnalysis, knowledge_items: list[KnowledgeItem]) -> QuestionSet`
+
+`generate_for_session(session_id: int) -> QuestionSet` — берёт сохранённый VacancyAnalysis, подбирает KnowledgeItem, вызывает LLM один раз и сохраняет вопросы; если вопросы для сессии уже есть, возвращает их без вызова LLM.
+
+`list_questions(session_id: int) -> list[InterviewQuestion]`, `get_question(session_id: int, question_id: str) -> InterviewQuestion | None`
+
+Ошибки:
+- LLMServiceError (включая дубли и небезопасные для callback id вопросов)
+- QuestionGenerationError (нет анализа вакансии)
+- DatabaseError
 
 QuestionSet:
 - questions: list[InterviewQuestion] (1..10)
@@ -58,9 +67,22 @@ STAR:
 
 ## 5. KnowledgeService
 
-`find_relevant(profession: str, categories: list[str], keywords: list[str]) -> list[QuestionKBItem]`
+`find_relevant(profession: str | None, categories: list[QuestionCategory], keywords: list[str]) -> list[KnowledgeItem]`
 
-На MVP используется CSV. Vector database не требуется.
+KnowledgeItem (строка `knowledge_base/questions.csv`):
+- id: str
+- profession: str
+- category: technical | behavioral | situational | experience
+- question: str
+- difficulty: easy | medium | hard
+- star_required: bool
+- keywords: list[str]
 
-## 6. Telegram layer
+На MVP используется CSV и детерминированный отбор: +3 за профессию, +2 за категорию, +1 за каждое совпавшее ключевое слово; запись попадает в выдачу только при совпадении профессии или ключевого слова; дубликаты удаляются, максимум 20 записей. Нет совпадений — `[]`. Vector database и embeddings не используются.
+
+## 6. Telegram callbacks
+- `menu:generate_questions` — сформировать или показать вопросы текущей сессии.
+- `question:{question_id}` — выбрать вопрос, FSM → WAITING_ANSWER.
+
+## 7. Telegram layer
 Handlers orchestrate state transitions and call application services. Business logic must not be embedded in handlers.

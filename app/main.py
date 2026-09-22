@@ -5,11 +5,14 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.config import settings
+from app.bot.handlers.questions import router as questions_router
 from app.bot.handlers.start import router as start_router
 from app.bot.handlers.vacancy import router as vacancy_router
 from app.database.database import AsyncSessionFactory, engine, init_db
 from app.services.interview_session_service import InterviewSessionService
+from app.services.knowledge_service import KnowledgeService
 from app.services.openai_service import OpenAIService
+from app.services.question_service import QuestionService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
 
@@ -29,8 +32,11 @@ async def main() -> None:
         user_service=UserService(AsyncSessionFactory),
         vacancy_service=VacancyService(AsyncSessionFactory, llm=openai_service),
         interview_session_service=InterviewSessionService(AsyncSessionFactory),
+        question_service=QuestionService(
+            openai_service, KnowledgeService(), AsyncSessionFactory
+        ),
     )
-    dp.include_routers(start_router, vacancy_router)
+    dp.include_routers(start_router, vacancy_router, questions_router)
 
     try:
         await dp.start_polling(bot)

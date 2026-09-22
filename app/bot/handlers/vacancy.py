@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message
 
 from app.bot.callbacks import MenuAction, MenuCallback
 from app.bot.formatters import format_vacancy_analysis
-from app.bot.keyboards import back_to_menu_keyboard
+from app.bot.keyboards import back_to_menu_keyboard, vacancy_result_keyboard
 from app.bot.states import InterviewState
 from app.bot.texts import (
     ANALYSIS_IN_PROGRESS_TEXT,
@@ -102,7 +102,7 @@ async def vacancy_received(
 
     await state.set_state(InterviewState.VACANCY_RESULT)
     await message.answer(
-        format_vacancy_analysis(analysis), reply_markup=back_to_menu_keyboard()
+        format_vacancy_analysis(analysis), reply_markup=vacancy_result_keyboard()
     )
 
 

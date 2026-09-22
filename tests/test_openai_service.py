@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 from collections.abc import Callable
@@ -6,9 +7,16 @@ import httpx
 import pytest
 from openai import AsyncOpenAI
 
+from app.schemas.knowledge import KnowledgeItem
+from app.schemas.question import InterviewQuestion, QuestionSet
 from app.schemas.vacancy import VacancyAnalysis
+from app.services import openai_service as openai_service_module
 from app.services.exceptions import LLMServiceError
-from app.services.openai_service import VACANCY_ANALYSIS_PROMPT, OpenAIService
+from app.services.openai_service import (
+    QUESTIONS_PROMPT,
+    VACANCY_ANALYSIS_PROMPT,
+    OpenAIService,
+)
 
 TEST_API_KEY = "sk-test-not-a-real-key"
 VACANCY_TEXT = "Ищем бизнес-аналитика: SQL, BPMN, REST API, сбор требований. " * 3
@@ -178,3 +186,106 @@ async def test_unexpected_error_is_wrapped() -> None:
 async def test_missing_client_raises_llm_error() -> None:
     with pytest.raises(LLMServiceError, match="not configured"):
         await OpenAIService().analyze_vacancy(VACANCY_TEXT)
+
+
+KB_ITEM = KnowledgeItem(
+    id="4",
+    profession="analyst",
+    category="technical",
+    question="Какие SQL JOIN вы знаете?",
+    difficulty="easy",
+    keywords=["SQL", "JOIN"],
+)
+QUESTION_SET = QuestionSet(
+    questions=[
+        InterviewQuestion(
+            id="Q-01",
+            question="Как вы используете SQL для проверки требований?",
+            category="technical",
+            difficulty="medium",
+        ),
+        InterviewQuestion(
+            id="Q-02",
+            question="Расскажите о конфликте требований.",
+            category="behavioral",
+            difficulty="medium",
+            star_required=True,
+        ),
+    ]
+)
+
+
+async def generate(handler: Handler) -> QuestionSet:
+    return await make_service(handler).generate_questions(ANALYSIS, [KB_ITEM])
+
+
+async def test_generate_questions_structured_request_and_result() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return output_text(QUESTION_SET.model_dump_json())
+
+    result = await generate(handler)
+
+    assert isinstance(result, QuestionSet)
+    assert result == QUESTION_SET
+    [request] = requests
+    body = json.loads(request.content)
+    assert body["model"] == "gpt-test"
+    assert body["store"] is False
+    system, user = body["input"]
+    assert system == {"role": "system", "content": QUESTIONS_PROMPT}
+    assert user["role"] == "user"
+    assert "<vacancy_analysis>" in user["content"] and "Бизнес-аналитик" in user["content"]
+    assert "<knowledge_base>" in user["content"] and "[KB-4]" in user["content"]
+    assert "Какие SQL JOIN вы знаете?" not in system["content"]
+    text_format = body["text"]["format"]
+    assert text_format["type"] == "json_schema"
+    assert text_format["name"] == "QuestionSet"
+    assert text_format["strict"] is True
+    questions_schema = text_format["schema"]["properties"]["questions"]
+    assert (questions_schema["minItems"], questions_schema["maxItems"]) == (1, 10)
+
+
+async def test_generate_questions_refusal() -> None:
+    refusal = httpx.Response(
+        200, json=response_body([{"type": "refusal", "refusal": "I can't help with that"}])
+    )
+
+    with pytest.raises(LLMServiceError, match="no QuestionSet"):
+        await generate(lambda request: refusal)
+
+
+async def test_generate_questions_api_error() -> None:
+    with pytest.raises(LLMServiceError, match="500"):
+        await generate(error_response(500, "boom"))
+
+
+async def test_generate_questions_timeout() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    with pytest.raises(LLMServiceError, match="timed out"):
+        await generate(handler)
+
+
+async def test_generate_questions_connection_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    with pytest.raises(LLMServiceError, match="connection"):
+        await generate(handler)
+
+
+async def test_generate_questions_invalid_json() -> None:
+    with pytest.raises(LLMServiceError, match="does not match QuestionSet"):
+        await generate(lambda request: output_text('{"questions": [{"id": "Q-01"}]}'))
+
+
+def test_openai_service_does_not_parse_json_manually() -> None:
+    source = inspect.getsource(openai_service_module)
+
+    assert "json.loads" not in source
+    assert "output_text" not in source
+    assert "output_parsed" in source

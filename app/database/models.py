@@ -1,7 +1,16 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -86,6 +95,28 @@ class InterviewSession(Base):
     vacancy: Mapped[Vacancy] = relationship(back_populates="interview_sessions")
     answers: Mapped[list["Answer"]] = relationship(
         back_populates="session", cascade="all, delete-orphan"
+    )
+
+
+class SessionQuestion(Base):
+    """A generated question of an interview session, addressable by question_id."""
+
+    __tablename__ = "interview_questions"
+    __table_args__ = (UniqueConstraint("session_id", "question_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("interview_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    question_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(16), nullable=False)
+    star_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
     )
 
 

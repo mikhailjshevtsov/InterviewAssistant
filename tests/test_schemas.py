@@ -15,6 +15,7 @@ from app.schemas import (
     VacancyAnalysis,
 )
 from app.services.answer_service import AnswerService
+from app.services.exceptions import LLMServiceError
 from app.services.openai_service import OpenAIService
 from app.services.question_service import QuestionService
 from app.services.vacancy_service import VacancyService
@@ -230,7 +231,7 @@ def test_service_contracts_are_typed(method: object, expected_return: type) -> N
 async def test_openai_stub_is_not_implemented() -> None:
     analysis = VacancyAnalysis.model_validate(VACANCY_EXAMPLE)
 
-    with pytest.raises(NotImplementedError):
-        await QuestionService(OpenAIService()).generate(analysis, [make_question()])
+    with pytest.raises(LLMServiceError, match="not configured"):
+        await QuestionService(OpenAIService()).generate(analysis, [])
     with pytest.raises(NotImplementedError):
         await AnswerService(OpenAIService()).analyze(make_question(), "ответ", analysis)
