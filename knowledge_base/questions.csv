@@ -1,0 +1,5 @@
+id,profession,category,question,difficulty,star_required,keywords
+1,analyst,technical,"Чем REST отличается от SOAP?",easy,false,"REST,SOAP,API"
+2,analyst,behavioral,"Расскажите о сложном проекте.",medium,true,"project,STAR"
+3,analyst,requirements,"Как вы собираете требования?",medium,true,"requirements,BA"
+4,analyst,sql,"Какие SQL JOIN вы знаете?",easy,false,"SQL,JOIN"
