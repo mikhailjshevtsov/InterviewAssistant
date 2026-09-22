@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -7,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.database.exceptions import DatabaseError
 from app.database.models import Vacancy
 from app.database.repositories.vacancy_repository import VacancyRepository
+from app.schemas.vacancy import VacancyAnalysis
 from app.services.openai_service import OpenAIService
 
 logger = logging.getLogger(__name__)
@@ -33,5 +33,5 @@ class VacancyService:
                 raise DatabaseError("Failed to create vacancy") from exc
         return vacancy
 
-    async def analyze(self, vacancy_text: str) -> dict[str, Any]:
+    async def analyze(self, vacancy_text: str) -> VacancyAnalysis:
         return await self.llm.analyze_vacancy(vacancy_text)

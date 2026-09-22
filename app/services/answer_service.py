@@ -1,5 +1,8 @@
-from typing import Any
+from app.schemas.answer import AnswerAnalysis
+from app.schemas.question import InterviewQuestion
+from app.schemas.vacancy import VacancyAnalysis
 from app.services.openai_service import OpenAIService
+
 
 class AnswerService:
     def __init__(self, llm: OpenAIService):
@@ -7,10 +10,8 @@ class AnswerService:
 
     async def analyze(
         self,
-        question: str,
+        question: InterviewQuestion,
         answer: str,
-        vacancy_analysis: dict[str, Any],
-    ) -> dict[str, Any]:
-        return await self.llm.analyze_answer(
-            question, answer, vacancy_analysis
-        )
+        vacancy_analysis: VacancyAnalysis,
+    ) -> AnswerAnalysis:
+        return await self.llm.analyze_answer(question, answer, vacancy_analysis)

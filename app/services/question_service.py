@@ -1,5 +1,7 @@
-from typing import Any
+from app.schemas.question import InterviewQuestion, QuestionSet
+from app.schemas.vacancy import VacancyAnalysis
 from app.services.openai_service import OpenAIService
+
 
 class QuestionService:
     def __init__(self, llm: OpenAIService):
@@ -7,9 +9,7 @@ class QuestionService:
 
     async def generate(
         self,
-        vacancy_analysis: dict[str, Any],
-        knowledge_items: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        return await self.llm.generate_questions(
-            vacancy_analysis, knowledge_items
-        )
+        vacancy_analysis: VacancyAnalysis,
+        knowledge_items: list[InterviewQuestion],
+    ) -> QuestionSet:
+        return await self.llm.generate_questions(vacancy_analysis, knowledge_items)
