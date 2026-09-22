@@ -7,6 +7,10 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from app.config import settings
 from app.bot.handlers.start import router as start_router
 from app.bot.handlers.vacancy import router as vacancy_router
+from app.database.database import AsyncSessionFactory, engine, init_db
+from app.services.interview_session_service import InterviewSessionService
+from app.services.user_service import UserService
+from app.services.vacancy_service import VacancyService
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -16,10 +20,20 @@ logging.basicConfig(
 
 async def main() -> None:
     bot = Bot(token=settings.bot_token)
-    dp = Dispatcher(storage=MemoryStorage())
+    await init_db()
+
+    dp = Dispatcher(
+        storage=MemoryStorage(),
+        user_service=UserService(AsyncSessionFactory),
+        vacancy_service=VacancyService(AsyncSessionFactory),
+        interview_session_service=InterviewSessionService(AsyncSessionFactory),
+    )
     dp.include_routers(start_router, vacancy_router)
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await engine.dispose()
 
 
 if __name__ == "__main__":

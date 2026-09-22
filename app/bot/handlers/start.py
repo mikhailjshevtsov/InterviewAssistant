@@ -6,6 +6,9 @@ from aiogram.types import CallbackQuery, Message
 from app.bot.callbacks import MenuAction, MenuCallback
 from app.bot.keyboards import back_to_menu_keyboard, main_menu_keyboard
 from app.bot.states import InterviewState
+from app.bot.texts import DATABASE_ERROR_TEXT
+from app.database.exceptions import DatabaseError
+from app.services.user_service import UserService
 
 router = Router(name="start")
 
@@ -30,15 +33,22 @@ HELP_TEXT = (
 
 
 @router.message(CommandStart())
-async def start_handler(message: Message, state: FSMContext) -> None:
+async def start_handler(
+    message: Message, state: FSMContext, user_service: UserService
+) -> None:
     await state.clear()
-    user = message.from_user
-    if user is not None:
-        await state.update_data(
-            user_id=user.id,
-            username=user.username,
-            full_name=user.full_name,
-        )
+    telegram_user = message.from_user
+    if telegram_user is not None:
+        try:
+            user = await user_service.get_or_create_user(
+                telegram_id=telegram_user.id,
+                username=telegram_user.username,
+                full_name=telegram_user.full_name,
+            )
+        except DatabaseError:
+            await message.answer(DATABASE_ERROR_TEXT)
+            return
+        await state.update_data(user_id=user.id)
     await state.set_state(InterviewState.MAIN_MENU)
     await message.answer(WELCOME_TEXT, reply_markup=main_menu_keyboard())
 
