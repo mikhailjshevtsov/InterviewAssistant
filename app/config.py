@@ -3,7 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     bot_token: str
     openai_api_key: str = ""
-    openai_model: str = "gpt-5.6-mini"
+    openai_model: str = "gpt-5.6-luna"
+    openai_timeout: float = 60.0
     database_url: str = "sqlite+aiosqlite:///./data/app.db"
     log_level: str = "INFO"
 

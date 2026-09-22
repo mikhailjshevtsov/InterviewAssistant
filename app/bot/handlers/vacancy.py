@@ -3,11 +3,18 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.bot.callbacks import MenuAction, MenuCallback
+from app.bot.formatters import format_vacancy_analysis
 from app.bot.keyboards import back_to_menu_keyboard
 from app.bot.states import InterviewState
-from app.bot.texts import DATABASE_ERROR_TEXT
+from app.bot.texts import (
+    ANALYSIS_IN_PROGRESS_TEXT,
+    ANALYZING_VACANCY_TEXT,
+    DATABASE_ERROR_TEXT,
+    LLM_ERROR_TEXT,
+)
 from app.database.exceptions import DatabaseError
 from app.database.models import InterviewSessionStatus
+from app.services.exceptions import InvalidVacancyTextError, LLMServiceError
 from app.services.interview_session_service import InterviewSessionService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
@@ -79,10 +86,31 @@ async def vacancy_received(
         session_id=interview_session.id,
     )
     await state.set_state(InterviewState.ANALYZING_VACANCY)
+    await message.answer(ANALYZING_VACANCY_TEXT)
+
+    try:
+        analysis = await vacancy_service.analyze(vacancy.id)
+        await interview_session_service.update_status(
+            interview_session.id, InterviewSessionStatus.VACANCY_RESULT
+        )
+    except (LLMServiceError, InvalidVacancyTextError):
+        await _return_to_waiting_vacancy(message, state, LLM_ERROR_TEXT)
+        return
+    except DatabaseError:
+        await _return_to_waiting_vacancy(message, state, DATABASE_ERROR_TEXT)
+        return
+
+    await state.set_state(InterviewState.VACANCY_RESULT)
     await message.answer(
-        "🔎 Вакансия получена. Анализ будет подключён на следующем этапе.",
-        reply_markup=back_to_menu_keyboard(),
+        format_vacancy_analysis(analysis), reply_markup=back_to_menu_keyboard()
     )
+
+
+async def _return_to_waiting_vacancy(
+    message: Message, state: FSMContext, text: str
+) -> None:
+    await state.set_state(InterviewState.WAITING_VACANCY)
+    await message.answer(text, reply_markup=back_to_menu_keyboard())
 
 
 async def _get_user_id(
@@ -104,8 +132,4 @@ async def _get_user_id(
 
 @router.message(InterviewState.ANALYZING_VACANCY)
 async def analyzing_vacancy_message(message: Message) -> None:
-    await message.answer(
-        "⏳ Вакансия уже получена. Анализ будет подключён на следующем этапе.\n"
-        "Чтобы начать заново, вернитесь в главное меню.",
-        reply_markup=back_to_menu_keyboard(),
-    )
+    await message.answer(ANALYSIS_IN_PROGRESS_TEXT, reply_markup=back_to_menu_keyboard())

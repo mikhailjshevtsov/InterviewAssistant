@@ -14,6 +14,7 @@ from app.bot.states import InterviewState
 from app.bot.texts import DATABASE_ERROR_TEXT
 from app.database.exceptions import DatabaseError
 from app.database.models import InterviewSession, InterviewSessionStatus, User, Vacancy
+from app.schemas.vacancy import VacancyAnalysis
 from app.services.interview_session_service import InterviewSessionService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
@@ -38,9 +39,14 @@ def state() -> FSMContext:
 
 @pytest.fixture
 def services(session_factory: async_sessionmaker[AsyncSession]) -> dict:
+    llm = SimpleNamespace(
+        analyze_vacancy=AsyncMock(
+            return_value=VacancyAnalysis(position="Python Developer", company=None)
+        )
+    )
     return {
         "user_service": UserService(session_factory),
-        "vacancy_service": VacancyService(session_factory),
+        "vacancy_service": VacancyService(session_factory, llm=llm),
         "interview_session_service": InterviewSessionService(session_factory),
     }
 
@@ -62,7 +68,7 @@ async def test_start_and_vacancy_flow_persists_and_fills_fsm(
     await vacancy_received(make_message(VACANCY_TEXT), state, **services)
 
     data = await state.get_data()
-    assert await state.get_state() == InterviewState.ANALYZING_VACANCY.state
+    assert await state.get_state() == InterviewState.VACANCY_RESULT.state
     assert {"user_id", "vacancy_id", "session_id"} <= set(data)
 
     async with session_factory() as session:
@@ -73,7 +79,7 @@ async def test_start_and_vacancy_flow_persists_and_fills_fsm(
     assert vacancy is not None and vacancy.user_id == data["user_id"]
     assert interview_session is not None
     assert interview_session.vacancy_id == vacancy.id
-    assert interview_session.status == InterviewSessionStatus.ANALYZING_VACANCY
+    assert interview_session.status == InterviewSessionStatus.VACANCY_RESULT
 
 
 async def test_invalid_vacancy_is_not_saved(
