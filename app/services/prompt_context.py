@@ -1,7 +1,7 @@
 import re
 
 from app.schemas.answer import AnswerAnalysis
-from app.schemas.knowledge import KnowledgeItem
+from app.schemas.knowledge import KnowledgeItem, StarExample
 from app.schemas.question import InterviewQuestion
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.session_statistics import AnsweredQuestion, SessionStatistics
@@ -16,6 +16,7 @@ CONTEXT_TAGS = (
     "candidate_answer",
     "answer_analyses",
     "session_statistics",
+    "star_examples",
 )
 _CONTEXT_TAG_RE = re.compile(rf"<\s*/?\s*({'|'.join(CONTEXT_TAGS)})\s*>", re.IGNORECASE)
 
@@ -73,10 +74,29 @@ def format_question_context(question: InterviewQuestion) -> str:
     )
 
 
+def format_star_examples_context(examples: list[StarExample]) -> str:
+    return "\n\n".join(
+        "\n".join(
+            [
+                f"Пример {index}",
+                f"Вопрос: {example.question}",
+                f"Situation: {example.situation}",
+                f"Task: {example.task}",
+                f"Action: {example.action}",
+                f"Result: {example.result}",
+            ]
+        )
+        for index, example in enumerate(examples, start=1)
+    )
+
+
 def build_answer_context(
-    question: InterviewQuestion, answer: str, analysis: VacancyAnalysis
+    question: InterviewQuestion,
+    answer: str,
+    analysis: VacancyAnalysis,
+    star_examples: list[StarExample] | None = None,
 ) -> str:
-    return (
+    context = (
         "<vacancy_analysis>\n"
         f"{neutralize_context_tags(format_vacancy_context(analysis))}\n"
         "</vacancy_analysis>\n\n"
@@ -87,15 +107,22 @@ def build_answer_context(
         f"{neutralize_context_tags(answer)}\n"
         "</candidate_answer>"
     )
+    if star_examples:
+        context += (
+            "\n\n<star_examples>\n"
+            f"{neutralize_context_tags(format_star_examples_context(star_examples))}\n"
+            "</star_examples>"
+        )
+    return context
 
 
 def build_questions_context(analysis: VacancyAnalysis, items: list[KnowledgeItem]) -> str:
     return (
         "<vacancy_analysis>\n"
-        f"{format_vacancy_context(analysis)}\n"
+        f"{neutralize_context_tags(format_vacancy_context(analysis))}\n"
         "</vacancy_analysis>\n\n"
         "<knowledge_base>\n"
-        f"{format_knowledge_context(items)}\n"
+        f"{neutralize_context_tags(format_knowledge_context(items))}\n"
         "</knowledge_base>"
     )
 

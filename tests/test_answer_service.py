@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.database.exceptions import DatabaseError, EntityNotFoundError
 from app.database.models import Answer, InterviewSession, InterviewSessionStatus, SessionQuestion
 from app.database.repositories import AnswerRepository
+from app.knowledge.csv_repository import CsvKnowledgeRepository
 from app.schemas.answer import AnswerAnalysis
 from app.services.answer_service import AnswerService
+from app.services.knowledge_service import KnowledgeService
 from app.services.answer_validator import AnswerValidationError
 from app.services.exceptions import InvalidAnswerTextError, LLMServiceError
 from answer_helpers import (
@@ -73,6 +75,60 @@ async def test_openai_receives_saved_vacancy_question_and_answer(
     assert QUESTIONS[1].question in content
     assert "Ожидается ответ по STAR: да" in content
     assert f"<candidate_answer>\n{ANSWER_TEXT}\n</candidate_answer>" in content
+
+
+async def test_star_question_receives_star_examples_without_ids(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    session_id = await create_session_with_questions(session_factory)
+    llm, transport = llm_returning()
+    service = AnswerService(llm, session_factory, KnowledgeService())
+
+    await service.analyze_for_session(session_id, "Q-02", ANSWER_TEXT)
+
+    [body] = transport.bodies()
+    content = body["input"][1]["content"]
+    examples = content.split("<star_examples>\n", 1)[1].split("\n</star_examples>", 1)[0]
+    assert "Пример 1" in examples and "Пример 2" in examples
+    assert "Situation:" in examples and "Result:" in examples
+    assert "STAR-" not in content
+    assert "Правила для <star_examples>" in body["input"][0]["content"]
+
+
+@pytest.mark.parametrize(
+    ("question_id", "knowledge_service"),
+    [("Q-01", KnowledgeService()), ("Q-02", None)],
+)
+async def test_star_examples_are_sent_only_for_star_questions(
+    session_factory: async_sessionmaker[AsyncSession],
+    question_id: str,
+    knowledge_service: KnowledgeService | None,
+) -> None:
+    session_id = await create_session_with_questions(session_factory)
+    llm, transport = llm_returning()
+
+    await AnswerService(llm, session_factory, knowledge_service).analyze_for_session(
+        session_id, question_id, ANSWER_TEXT
+    )
+
+    [body] = transport.bodies()
+    assert "<star_examples>" not in body["input"][1]["content"]
+
+
+async def test_missing_star_examples_file_does_not_break_analysis(
+    session_factory: async_sessionmaker[AsyncSession], tmp_path
+) -> None:
+    session_id = await create_session_with_questions(session_factory)
+    llm, transport = llm_returning()
+    knowledge_service = KnowledgeService(CsvKnowledgeRepository(tmp_path / "questions.csv"))
+
+    result = await AnswerService(llm, session_factory, knowledge_service).analyze_for_session(
+        session_id, "Q-02", ANSWER_TEXT
+    )
+
+    assert result == ANSWER_ANALYSIS
+    [body] = transport.bodies()
+    assert "<star_examples>" not in body["input"][1]["content"]
 
 
 async def test_llm_error_saves_nothing(

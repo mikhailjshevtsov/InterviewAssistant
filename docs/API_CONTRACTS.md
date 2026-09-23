@@ -54,6 +54,8 @@ InterviewQuestion:
 
 `get_saved_analysis(session_id: int, question_id: str) -> AnswerAnalysis | None` — последний сохранённый анализ; повторный анализ только по явному действию пользователя.
 
+Конструктор: `AnswerService(llm, session_factory=None, knowledge_service: KnowledgeService | None = None)`. Если передан `knowledge_service` и вопрос требует STAR (`star_required=True`), сервис подбирает до 2 примеров через `KnowledgeService.find_star_examples(position, [question.category], [question, hard_skills, interview_topics])` и передаёт их в `OpenAIService.analyze_answer(..., star_examples)`. Примеры попадают в блок `<star_examples>` без идентификаторов и служат только образцом структуры. Нет примеров или файла — анализ идёт без блока.
+
 Ошибки:
 - InvalidAnswerTextError (empty | too_short)
 - LLMServiceError
@@ -113,7 +115,36 @@ KnowledgeItem (строка `knowledge_base/questions.csv`):
 
 На MVP используется CSV и детерминированный отбор: +3 за профессию, +2 за категорию, +1 за каждое совпавшее ключевое слово; запись попадает в выдачу только при совпадении профессии или ключевого слова; дубликаты удаляются, максимум 20 записей. Нет совпадений — `[]`. Vector database и embeddings не используются.
 
-## 7. Telegram callbacks
+Профессия вакансии сопоставляется с кодом профессии через псевдонимы из `knowledge_base/professions.csv` (подстрока в названии позиции, без учёта регистра).
+
+`find_star_examples(profession: str | None, categories: list[QuestionCategory], keywords: list[str], limit: int = 2) -> list[StarExample]` — тот же алгоритм отбора по `knowledge_base/star_examples.csv`.
+
+StarExample:
+- id, profession, question, situation, task, action, result: str (непустые)
+- category: technical | behavioral | situational | experience
+- keywords: list[str]
+
+Если CSV-файл отсутствует или не читается, методы возвращают `[]` и пишут предупреждение в лог; бот продолжает работать.
+
+## 7. ChecklistService
+
+`list_categories() -> list[ChecklistCategory]` — категории, в которых есть пункты, в порядке показа.
+
+`get_items(category: ChecklistCategory) -> list[ChecklistItem]` — сначала общие пункты (`profession=general`), затем профессиональные; внутри группы по приоритету high → medium → low.
+
+`profession_titles() -> dict[str, str]` — отображаемые названия профессий из `professions.csv`.
+
+ChecklistItem (строка `knowledge_base/checklists.csv`):
+- id, profession, title, item: str
+- category: before_interview | documents | appearance | final_check | during_interview | end_interview | after_interview
+- priority: high | medium | low
+- keywords: list[str]
+
+Сервис только читает CSV; прогресс пользователя не хранится.
+
+## 8. Telegram callbacks
+- `menu:checklists` — список категорий чек-листов (FSM не меняется).
+- `checklist:{category}` — пункты выбранной категории, кнопки «⬅️ К чек-листам» и «🏠 Главное меню».
 - `menu:summary` — итоги подготовки: сохранённый итог или генерация (FSM → GENERATING_SUMMARY → SUMMARY_RESULT; при ошибке — возврат в предыдущее состояние).
 - `menu:generate_questions` — сформировать или показать вопросы текущей сессии.
 - `question:{question_id}` — выбрать вопрос, FSM → WAITING_ANSWER (или сохранённый результат, FSM → NEXT_ACTION).
@@ -123,5 +154,5 @@ KnowledgeItem (строка `knowledge_base/questions.csv`):
 - `menu:retry_answer` — ответить на текущий вопрос заново, FSM → WAITING_ANSWER.
 - `menu:main_menu` — главное меню.
 
-## 8. Telegram layer
+## 9. Telegram layer
 Handlers orchestrate state transitions and call application services. Business logic must not be embedded in handlers.

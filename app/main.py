@@ -6,12 +6,15 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.config import settings
 from app.bot.handlers.answers import router as answers_router
+from app.bot.handlers.checklists import router as checklists_router
 from app.bot.handlers.questions import router as questions_router
 from app.bot.handlers.start import router as start_router
 from app.bot.handlers.summary import router as summary_router
 from app.bot.handlers.vacancy import router as vacancy_router
 from app.database.database import AsyncSessionFactory, engine, init_db
+from app.knowledge.csv_repository import CsvKnowledgeRepository
 from app.services.answer_service import AnswerService
+from app.services.checklist_service import ChecklistService
 from app.services.interview_session_service import InterviewSessionService
 from app.services.knowledge_service import KnowledgeService
 from app.services.openai_service import OpenAIService
@@ -32,6 +35,8 @@ async def main() -> None:
     bot = Bot(token=settings.bot_token)
     await init_db()
     openai_service = OpenAIService.from_settings()
+    knowledge_repository = CsvKnowledgeRepository()
+    knowledge_service = KnowledgeService(knowledge_repository)
 
     dp = Dispatcher(
         storage=MemoryStorage(),
@@ -39,13 +44,19 @@ async def main() -> None:
         vacancy_service=VacancyService(AsyncSessionFactory, llm=openai_service),
         interview_session_service=InterviewSessionService(AsyncSessionFactory),
         question_service=QuestionService(
-            openai_service, KnowledgeService(), AsyncSessionFactory
+            openai_service, knowledge_service, AsyncSessionFactory
         ),
-        answer_service=AnswerService(openai_service, AsyncSessionFactory),
+        answer_service=AnswerService(openai_service, AsyncSessionFactory, knowledge_service),
         session_summary_service=SessionSummaryService(openai_service, AsyncSessionFactory),
+        checklist_service=ChecklistService(knowledge_repository),
     )
     dp.include_routers(
-        start_router, vacancy_router, questions_router, answers_router, summary_router
+        start_router,
+        vacancy_router,
+        questions_router,
+        answers_router,
+        summary_router,
+        checklists_router,
     )
 
     try:

@@ -1,8 +1,9 @@
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from app.bot.callbacks import MenuAction, MenuCallback, QuestionCallback
-from app.bot.formatters import question_button_text
+from app.bot.callbacks import ChecklistCallback, MenuAction, MenuCallback, QuestionCallback
+from app.bot.formatters import CHECKLIST_CATEGORY_LABELS, question_button_text
+from app.schemas.knowledge import ChecklistCategory
 from app.schemas.question import InterviewQuestion
 
 
@@ -13,11 +14,34 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         callback_data=MenuCallback(action=MenuAction.PREPARE),
     )
     builder.button(
+        text="📋 Чек-листы",
+        callback_data=MenuCallback(action=MenuAction.CHECKLISTS),
+    )
+    builder.button(
         text="ℹ️ Помощь",
         callback_data=MenuCallback(action=MenuAction.HELP),
     )
     builder.adjust(1)
     return builder.as_markup()
+
+
+def checklist_categories_keyboard(categories: list[ChecklistCategory]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for category in categories:
+        builder.button(
+            text=CHECKLIST_CATEGORY_LABELS[category],
+            callback_data=ChecklistCallback(category=category),
+        )
+    builder.button(
+        text="🏠 Главное меню",
+        callback_data=MenuCallback(action=MenuAction.MAIN_MENU),
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+def checklist_keyboard() -> InlineKeyboardMarkup:
+    return _with_main_menu(("⬅️ К чек-листам", MenuAction.CHECKLISTS))
 
 
 def back_to_menu_keyboard() -> InlineKeyboardMarkup:

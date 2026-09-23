@@ -52,6 +52,7 @@ def test_openai_service_uses_async_client() -> None:
 
 KNOWLEDGE_FILES = [
     APP_DIR / "services" / "knowledge_service.py",
+    APP_DIR / "services" / "checklist_service.py",
     *sorted((APP_DIR / "knowledge").glob("*.py")),
 ]
 FORBIDDEN_IN_KNOWLEDGE = ("sqlalchemy", "aiogram", "app.database", "app.bot", "app.services.openai")
@@ -168,6 +169,43 @@ def test_session_statistics_is_pure() -> None:
         for name in names
     )
     assert not imports_openai(names)
+
+
+@pytest.mark.parametrize("path", KNOWLEDGE_FILES, ids=lambda path: path.name)
+def test_knowledge_base_is_read_only(path: Path) -> None:
+    source = path.read_text(encoding="utf-8")
+
+    for forbidden in ("csv.writer", "DictWriter", "write_text", "write_bytes", ".write(", '"w"', '"a"'):
+        assert forbidden not in source
+
+
+def test_checklists_handler_only_orchestrates() -> None:
+    path = APP_DIR / "bot" / "handlers" / "checklists.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert not imports_openai(names)
+    assert not any(
+        name.startswith(("sqlalchemy", "app.database", "app.knowledge", "csv")) for name in names
+    )
+    assert "InterviewState" not in source and "set_state" not in source
+    assert "load_checklists" not in source and "sorted(" not in source
+
+
+def test_answer_service_gets_star_examples_only_through_knowledge_service() -> None:
+    names = imported_names(APP_DIR / "services" / "answer_service.py")
+
+    assert "app.services.knowledge_service" in names
+    assert not any(name.startswith("app.knowledge") for name in names)
+    assert "csv" not in names
+
+
+def test_knowledge_dtos_are_not_orm_models() -> None:
+    from app.database.models import Base
+    from app.schemas.knowledge import ChecklistItem, ProfessionProfile, StarExample
+
+    for dto in (ChecklistItem, ProfessionProfile, StarExample):
+        assert not issubclass(dto, Base)
 
 
 def test_summary_dto_is_not_orm_model() -> None:

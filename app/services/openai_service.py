@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.config import settings
 from app.schemas.answer import AnswerAnalysis
-from app.schemas.knowledge import KnowledgeItem
+from app.schemas.knowledge import KnowledgeItem, StarExample
 from app.schemas.question import InterviewQuestion, QuestionSet
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.exceptions import LLMServiceError
@@ -83,13 +83,16 @@ class OpenAIService:
         question: InterviewQuestion,
         answer: str,
         vacancy_analysis: VacancyAnalysis,
+        star_examples: list[StarExample] | None = None,
     ) -> AnswerAnalysis:
         return await self._parse(
             [
                 {"role": "system", "content": ANSWER_ANALYSIS_PROMPT},
                 {
                     "role": "user",
-                    "content": build_answer_context(question, answer, vacancy_analysis),
+                    "content": build_answer_context(
+                        question, answer, vacancy_analysis, star_examples
+                    ),
                 },
             ],
             AnswerAnalysis,

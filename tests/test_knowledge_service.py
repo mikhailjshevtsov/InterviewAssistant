@@ -25,7 +25,7 @@ def service_for(path: Path, **kwargs: object) -> KnowledgeService:
 def test_reads_project_csv() -> None:
     items = CsvKnowledgeRepository().load_questions()
 
-    assert [item.id for item in items] == ["1", "2", "3", "4"]
+    assert [item.id for item in items][:4] == ["1", "2", "3", "4"]
     assert all(isinstance(item, KnowledgeItem) for item in items)
     rest = items[0]
     assert rest.profession == "analyst"

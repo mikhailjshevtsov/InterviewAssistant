@@ -12,10 +12,12 @@ from app.database.repositories.question_repository import SessionQuestionReposit
 from app.database.repositories.session_repository import InterviewSessionRepository
 from app.database.repositories.vacancy_repository import VacancyRepository
 from app.schemas.answer import AnswerAnalysis
+from app.schemas.knowledge import StarExample
 from app.schemas.question import InterviewQuestion
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.answer_validator import validate_answer_text
 from app.services.exceptions import InvalidAnswerTextError, LLMServiceError
+from app.services.knowledge_service import KnowledgeService
 from app.services.openai_service import OpenAIService
 
 logger = logging.getLogger(__name__)
@@ -33,9 +35,11 @@ class AnswerService:
         self,
         llm: OpenAIService,
         session_factory: async_sessionmaker[AsyncSession] | None = None,
+        knowledge_service: KnowledgeService | None = None,
     ):
         self.llm = llm
         self.session_factory = session_factory
+        self.knowledge_service = knowledge_service
 
     async def analyze(
         self,
@@ -46,7 +50,10 @@ class AnswerService:
         validation = validate_answer_text(answer)
         if validation.error is not None:
             raise InvalidAnswerTextError(validation.error)
-        analysis = await self.llm.analyze_answer(question, validation.text, vacancy_analysis)
+        star_examples = await self._find_star_examples(question, vacancy_analysis)
+        analysis = await self.llm.analyze_answer(
+            question, validation.text, vacancy_analysis, star_examples
+        )
         if not isinstance(analysis, AnswerAnalysis):
             raise LLMServiceError("LLM returned no AnswerAnalysis")
         return analysis
@@ -92,6 +99,23 @@ class AnswerService:
         except ValidationError:
             logger.warning("Saved answer analysis is invalid (answer_id=%s)", answer.id)
             return None
+
+    async def _find_star_examples(
+        self, question: InterviewQuestion, vacancy_analysis: VacancyAnalysis
+    ) -> list[StarExample]:
+        if self.knowledge_service is None or not question.star_required:
+            return []
+        examples = await self.knowledge_service.find_star_examples(
+            profession=vacancy_analysis.position,
+            categories=[question.category],
+            keywords=[
+                question.question,
+                *vacancy_analysis.hard_skills,
+                *vacancy_analysis.interview_topics,
+            ],
+        )
+        logger.info("STAR examples selected: %s (question_id=%s)", len(examples), question.id)
+        return examples
 
     def _session(self) -> AsyncSession:
         if self.session_factory is None:

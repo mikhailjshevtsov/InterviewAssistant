@@ -1,4 +1,10 @@
 from app.schemas.answer import AnswerAnalysis, StarElementStatus
+from app.schemas.knowledge import (
+    GENERAL_PROFESSION,
+    ChecklistCategory,
+    ChecklistItem,
+    ChecklistPriority,
+)
 from app.schemas.question import (
     InterviewQuestion,
     QuestionCategory,
@@ -33,6 +39,19 @@ DIFFICULTY_LABELS = {
     QuestionDifficulty.MEDIUM: "средний",
     QuestionDifficulty.HARD: "сложный",
 }
+
+
+CHECKLIST_CATEGORY_LABELS = {
+    ChecklistCategory.BEFORE_INTERVIEW: "📝 До интервью",
+    ChecklistCategory.DOCUMENTS: "🎒 Что взять с собой",
+    ChecklistCategory.APPEARANCE: "👔 Внешний вид",
+    ChecklistCategory.FINAL_CHECK: "✅ Проверка перед началом",
+    ChecklistCategory.DURING_INTERVIEW: "💬 Во время интервью",
+    ChecklistCategory.END_INTERVIEW: "🤝 Завершение интервью",
+    ChecklistCategory.AFTER_INTERVIEW: "📬 После интервью",
+}
+CHECKLISTS_MENU_TEXT = "📋 Чек-листы подготовки\n\nВыберите этап интервью:"
+CHECKLISTS_EMPTY_TEXT = "📋 Чек-листы пока недоступны. Попробуйте позже."
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -172,6 +191,35 @@ def format_session_summary(summary: InterviewSummary) -> str:
         )
         sections.append(f"🔥 Что повторить в первую очередь\n{topics}")
     sections.append(f"📝 Общий вывод\n{summary.overall_summary}")
+    return _truncate("\n\n".join(sections), TELEGRAM_MESSAGE_LIMIT)
+
+
+def _checklist_entry(item: ChecklistItem, suffix: str = "") -> str:
+    marker = "❗" if item.priority is ChecklistPriority.HIGH else "•"
+    return f"{marker} {item.title}{suffix}\n{item.item}"
+
+
+def format_checklist(
+    category: ChecklistCategory,
+    items: list[ChecklistItem],
+    profession_titles: dict[str, str],
+) -> str:
+    general = [item for item in items if item.profession == GENERAL_PROFESSION]
+    specific = [item for item in items if item.profession != GENERAL_PROFESSION]
+    sections = [CHECKLIST_CATEGORY_LABELS[category]]
+    sections.extend(_checklist_entry(item) for item in general)
+    if specific:
+        sections.append("🎯 Дополнительно для отдельных профессий")
+        sections.extend(
+            _checklist_entry(
+                item, f" ({profession_titles.get(item.profession, item.profession)})"
+            )
+            for item in specific
+        )
+    if not items:
+        sections.append("В этом разделе пока нет пунктов.")
+    else:
+        sections.append("❗ — сделать обязательно")
     return _truncate("\n\n".join(sections), TELEGRAM_MESSAGE_LIMIT)
 
 

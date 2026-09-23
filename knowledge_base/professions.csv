@@ -1,0 +1,5 @@
+profession,title,aliases
+analyst,Аналитик,"analyst;аналитик"
+manager,Менеджер проектов и продуктов,"project manager;product manager;менеджер проект;менеджер продукт;менеджер по проект;менеджер по продукт;руководитель проект;проджект;продакт-менеджер;product owner;scrum master;delivery manager"
+creative,Креативные специалисты,"designer;дизайнер;копирайтер;copywriter;иллюстратор;illustrator;motion;креатив;creative;арт-директор;art director;smm;редактор"
+technical,Технические специалисты,"developer;разработчик;программист;engineer;инженер;devops;qa;тестировщик;backend;frontend;fullstack;sre"

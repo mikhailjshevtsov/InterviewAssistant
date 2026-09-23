@@ -61,7 +61,9 @@ class FakeLLM:
         self.calls = 0
         self.states_during_call: list[str | None] = []
 
-    async def analyze_answer(self, question, answer, vacancy_analysis) -> AnswerAnalysis:
+    async def analyze_answer(
+        self, question, answer, vacancy_analysis, star_examples=None
+    ) -> AnswerAnalysis:
         self.calls += 1
         self.states_during_call.append(await self.state.get_state())
         if self.error is not None:
