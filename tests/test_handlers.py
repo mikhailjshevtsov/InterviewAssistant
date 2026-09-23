@@ -16,6 +16,7 @@ from app.database.exceptions import DatabaseError
 from app.database.models import InterviewSession, InterviewSessionStatus, User, Vacancy
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.interview_session_service import InterviewSessionService
+from app.services.session_recovery_service import SessionRecoveryService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
 
@@ -48,6 +49,7 @@ def services(session_factory: async_sessionmaker[AsyncSession]) -> dict:
         "user_service": UserService(session_factory),
         "vacancy_service": VacancyService(session_factory, llm=llm),
         "interview_session_service": InterviewSessionService(session_factory),
+        "session_recovery_service": SessionRecoveryService(session_factory),
     }
 
 
@@ -57,15 +59,25 @@ async def test_start_and_vacancy_flow_persists_and_fills_fsm(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     await state.update_data(vacancy_id=1, session_id=1)
-    await start_handler(make_message(), state, services["user_service"])
-    await start_handler(make_message(), state, services["user_service"])
+    await start_handler(
+        make_message(), state, services["user_service"], services["session_recovery_service"]
+    )
+    await start_handler(
+        make_message(), state, services["user_service"], services["session_recovery_service"]
+    )
 
     data = await state.get_data()
     assert await state.get_state() == InterviewState.MAIN_MENU.state
     assert set(data) == {"user_id"}
 
     await state.set_state(InterviewState.WAITING_VACANCY)
-    await vacancy_received(make_message(VACANCY_TEXT), state, **services)
+    await vacancy_received(
+        make_message(VACANCY_TEXT),
+        state,
+        services["user_service"],
+        services["vacancy_service"],
+        services["interview_session_service"],
+    )
 
     data = await state.get_data()
     assert await state.get_state() == InterviewState.VACANCY_RESULT.state
@@ -87,9 +99,17 @@ async def test_invalid_vacancy_is_not_saved(
     services: dict,
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    await start_handler(make_message(), state, services["user_service"])
+    await start_handler(
+        make_message(), state, services["user_service"], services["session_recovery_service"]
+    )
     await state.set_state(InterviewState.WAITING_VACANCY)
-    await vacancy_received(make_message("too short"), state, **services)
+    await vacancy_received(
+        make_message("too short"),
+        state,
+        services["user_service"],
+        services["vacancy_service"],
+        services["interview_session_service"],
+    )
 
     assert await state.get_state() == InterviewState.WAITING_VACANCY.state
     async with session_factory() as session:
@@ -102,7 +122,7 @@ async def test_database_error_is_shown_without_traceback(state: FSMContext) -> N
     )
     message = make_message()
 
-    await start_handler(message, state, user_service)
+    await start_handler(message, state, user_service, SimpleNamespace())
 
     message.answer.assert_awaited_once_with(DATABASE_ERROR_TEXT)
     assert await state.get_state() is None

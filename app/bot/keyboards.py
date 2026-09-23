@@ -7,6 +7,13 @@ from app.schemas.knowledge import ChecklistCategory
 from app.schemas.question import InterviewQuestion
 
 
+def continue_session_keyboard() -> InlineKeyboardMarkup:
+    return _with_main_menu(
+        ("▶️ Продолжить", MenuAction.CONTINUE_SESSION),
+        ("🆕 Начать новое", MenuAction.NEW_SESSION),
+    )
+
+
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(

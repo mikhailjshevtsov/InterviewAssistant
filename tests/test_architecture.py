@@ -175,6 +175,27 @@ def test_session_summary_service_is_framework_free() -> None:
     assert "AnswerService" not in source and "analyze_answer" not in source
 
 
+def test_session_recovery_service_is_framework_free() -> None:
+    path = APP_DIR / "services" / "session_recovery_service.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert not any(name.startswith(("aiogram", "app.bot")) for name in names)
+    assert not imports_openai(names)
+    assert "AsyncOpenAI" not in source and "responses.parse" not in source
+
+
+def test_start_handler_does_not_query_database() -> None:
+    path = APP_DIR / "bot" / "handlers" / "start.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert "app.database.models" not in names
+    assert not any(name.startswith("app.database.repositories") for name in names)
+    assert "get_latest_by_user" not in source
+    assert "SessionRecoveryService" in source
+
+
 def test_session_statistics_is_pure() -> None:
     names = imported_names(APP_DIR / "services" / "session_statistics.py")
 

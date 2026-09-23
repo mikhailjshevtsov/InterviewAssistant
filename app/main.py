@@ -17,6 +17,7 @@ from app.services.answer_service import AnswerService
 from app.services.checklist_service import ChecklistService
 from app.services.interview_session_service import InterviewSessionService
 from app.services.knowledge_service import KnowledgeService
+from app.services.session_recovery_service import SessionRecoveryService
 from app.services.openai_service import OpenAIService
 from app.services.question_service import QuestionService
 from app.services.session_summary_service import SessionSummaryService
@@ -43,6 +44,7 @@ async def main() -> None:
         user_service=UserService(AsyncSessionFactory),
         vacancy_service=VacancyService(AsyncSessionFactory, llm=openai_service),
         interview_session_service=InterviewSessionService(AsyncSessionFactory),
+        session_recovery_service=SessionRecoveryService(AsyncSessionFactory),
         question_service=QuestionService(
             openai_service, knowledge_service, AsyncSessionFactory
         ),

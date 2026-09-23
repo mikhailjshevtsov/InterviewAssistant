@@ -11,6 +11,7 @@ from app.bot.texts import (
     ANALYZING_VACANCY_TEXT,
     DATABASE_ERROR_TEXT,
     LLM_ERROR_TEXT,
+    VACANCY_PROMPT_TEXT,
 )
 from app.database.exceptions import DatabaseError
 from app.services.exceptions import InvalidVacancyTextError, LLMServiceError
@@ -39,9 +40,7 @@ async def prepare_callback(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(InterviewState.WAITING_VACANCY)
     if isinstance(callback.message, Message):
         await callback.message.edit_text(
-            "📄 Отправьте текст вакансии.\n\n"
-            "Для лучшего результата используйте полный текст: "
-            "требования, обязанности, стек и условия.",
+            VACANCY_PROMPT_TEXT,
             reply_markup=back_to_menu_keyboard(),
         )
     await callback.answer()

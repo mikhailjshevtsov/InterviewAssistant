@@ -15,6 +15,8 @@ class MenuAction(StrEnum):
     RETRY_ANSWER = "retry_answer"
     SESSION_SUMMARY = "summary"
     CHECKLISTS = "checklists"
+    CONTINUE_SESSION = "continue"
+    NEW_SESSION = "new_session"
 
 
 class MenuCallback(CallbackData, prefix="menu"):

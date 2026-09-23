@@ -20,6 +20,15 @@ class InterviewSessionService:
     async def mark_vacancy_result(self, session_id: int) -> InterviewSession:
         return await self.update_status(session_id, InterviewSessionStatus.VACANCY_RESULT)
 
+    async def get_active_session(self, user_id: int) -> InterviewSession | None:
+        """Latest interview session of the user; it is the only recoverable session."""
+        async with self.session_factory() as session:
+            try:
+                return await InterviewSessionRepository(session).get_latest_by_user(user_id)
+            except SQLAlchemyError as exc:
+                logger.exception("Failed to load active session user_id=%s", user_id)
+                raise DatabaseError("Failed to load interview session") from exc
+
     async def create(
         self,
         user_id: int,

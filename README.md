@@ -3,6 +3,7 @@
 Telegram ИИ-ассистент для подготовки к собеседованиям.
 
 ## Стек
+
 - Python 3.12+
 - aiogram 3.x
 - OpenAI API
@@ -10,11 +11,13 @@ Telegram ИИ-ассистент для подготовки к собеседо
 - CSV Knowledge Base
 
 ## Текущий этап
-Stage 9: MVP Release Candidate (hardening, выравнивание документации, качество базы знаний).
 
-Бот анализирует вакансию, формирует вопросы с опорой на CSV-базу знаний, разбирает ответы (оценка, STAR, рекомендации, улучшенный ответ), строит итог сессии и показывает чек-листы подготовки. Все вызовы OpenAI идут через Responses API со Structured Outputs (Pydantic). Данные хранятся в `data/app.db`.
+Stage 10: Persistent Interview Sessions — восстановление незавершённой сессии пользователя после перезапуска бота. Сессия продолжается с места разрыва соединения.
+
+Бот анализирует вакансию, формирует вопросы с опорой на CSV-базу знаний, разбирает ответы (оценка, STAR, рекомендации, улучшенный ответ), строит итог сессии и показывает чек-листы подготовки. Все вызовы OpenAI идут через Responses API со Structured Outputs (Pydantic). Данные хранятся в `data/app.db`. Состояние интервью берётся из SQLite; FSM в памяти только для текущего диалога. После `/start` бот предлагает продолжить последнюю сессию, если она есть.
 
 ## Запуск
+
 1. Создайте `.env` по образцу `.env.example`
 2. Установите зависимости: `pip install -r requirements.txt`
 3. Запустите: `python -m app.main`
@@ -43,9 +46,29 @@ Stage 9: MVP Release Candidate (hardening, выравнивание докуме
 python -m app.knowledge.validate
 ```
 
-Документация:
+# Документация
+
 - [docs/KNOWLEDGE_BASE_GUIDE.md](docs/KNOWLEDGE_BASE_GUIDE.md) — форматы файлов, колонки, допустимые значения, правила заполнения, перенос в Google Sheets, пример «UX Researcher»;
 - [docs/ADAPTATION_GUIDE.md](docs/ADAPTATION_GUIDE.md) — как адаптировать ассистента под новую профессию;
 - [docs/PROMPTS.md](docs/PROMPTS.md) — промпты, входы, выходы, модели Pydantic, правила для недоверенных данных;
-- [docs/USER_SCENARIOS.md](docs/USER_SCENARIOS.md) — пользовательские сценарии UC-01…UC-09;
+- [docs/USER_SCENARIOS.md](docs/USER_SCENARIOS.md) — пользовательские сценарии UC-01…UC-10;
 - [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) — контракты сервисов и Telegram callbacks.
+
+# На дальнейшее развитие
+
+•  resume upload;
+•  PDF/DOCX;
+•  mock interview;
+•  voice;
+•  RAG;
+•  vector database;
+•  Google Sheets;
+•  web UI;
+•  admin panel;
+•  authentication;
+•  i18n;
+•  export;
+•  checklist progress;
+•  social login;
+•  new professions;
+•  new question generation logic.

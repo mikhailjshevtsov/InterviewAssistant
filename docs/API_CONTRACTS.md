@@ -145,7 +145,27 @@ ChecklistItem (строка `knowledge_base/checklists.csv`):
 
 Сервис только читает CSV; прогресс пользователя не хранится.
 
-## 8. Telegram callbacks
+## 8. SessionRecoveryService
+
+`build(user_id: int) -> SessionRecovery | None` — восстанавливает экран последней сессии пользователя из SQLite без вызова OpenAI.
+
+Active session: последняя `InterviewSession` пользователя (`id` по убыванию). Более старые сессии не удаляются и не перезаписываются. Новая подготовка создаёт новую строку. Сессия со статусом `SUMMARY_RESULT` тоже восстанавливается (показ сохранённого итога).
+
+Экран выбирается по данным, а не только по статусу:
+
+- есть валидный `summary_json` и статус `SUMMARY_RESULT` → итог сессии;
+- есть вопросы и статус ответа (`ANSWER_RESULT` / `NEXT_ACTION` / `WAITING_ANSWER` / `ANALYZING_ANSWER`) → последний сохранённый разбор;
+- есть вопросы → список вопросов;
+- есть `VacancyAnalysis` → результат анализа;
+- статус `ANALYZING_VACANCY` / `WAITING_VACANCY` без анализа → повторный ввод вакансии;
+- иначе сессия считается невосстановимой.
+
+FSM после продолжения содержит только `user_id`, `session_id`, `vacancy_id`, `question_id`.
+
+Ошибки:
+- DatabaseError
+
+## 9. Telegram callbacks
 - `menu:checklists` — список категорий чек-листов (FSM не меняется).
 - `checklist:{category}` — пункты выбранной категории, кнопки «⬅️ К чек-листам» и «🏠 Главное меню».
 - `menu:summary` — итоги подготовки: сохранённый итог или генерация (FSM → GENERATING_SUMMARY → SUMMARY_RESULT; при ошибке — возврат в предыдущее состояние).
@@ -156,6 +176,8 @@ ChecklistItem (строка `knowledge_base/checklists.csv`):
 - `menu:back_questions` — список вопросов, FSM → QUESTIONS.
 - `menu:retry_answer` — ответить на текущий вопрос заново, FSM → WAITING_ANSWER.
 - `menu:main_menu` — главное меню.
+- `menu:continue` — восстановить active session из SQLite и показать сохранённый экран.
+- `menu:new_session` — начать новую подготовку; старая сессия остаётся в БД.
 
-## 9. Telegram layer
+## 10. Telegram layer
 Handlers orchestrate state transitions and call application services. Business logic must not be embedded in handlers.

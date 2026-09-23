@@ -41,6 +41,19 @@ class AnswerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_latest_analyzed_in_session(self, session_id: int) -> Answer | None:
+        result = await self.session.execute(
+            select(Answer)
+            .where(
+                Answer.session_id == session_id,
+                Answer.session_question_id.is_not(None),
+                Answer.ai_analysis.is_not(None),
+            )
+            .order_by(Answer.id.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def list_analyzed_by_session(self, session_id: int) -> list[Answer]:
         result = await self.session.execute(
             select(Answer)

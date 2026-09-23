@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.exceptions import EntityNotFoundError
@@ -25,6 +26,15 @@ class InterviewSessionRepository:
 
     async def get_by_id(self, session_id: int) -> InterviewSession | None:
         return await self.session.get(InterviewSession, session_id)
+
+    async def get_latest_by_user(self, user_id: int) -> InterviewSession | None:
+        result = await self.session.execute(
+            select(InterviewSession)
+            .where(InterviewSession.user_id == user_id)
+            .order_by(InterviewSession.id.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def update_status(
         self,
