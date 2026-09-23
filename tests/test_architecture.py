@@ -133,3 +133,46 @@ def test_answer_dtos_are_not_orm_models() -> None:
 
     for dto in (AnswerAnalysis, StarAnalysis):
         assert not issubclass(dto, Base)
+
+
+def test_summary_handler_only_orchestrates() -> None:
+    path = APP_DIR / "bot" / "handlers" / "summary.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert not imports_openai(names)
+    assert not any(name.startswith(("sqlalchemy", "app.database.repositories", "csv")) for name in names)
+    assert "app.database.models" not in names
+    assert "app.services.session_statistics" not in names
+    for forbidden in ("summarize_session", "sum(", "len(", "average", "StarElementStatus", "recommendations"):
+        assert forbidden not in source
+
+
+def test_session_summary_service_is_framework_free() -> None:
+    path = APP_DIR / "services" / "session_summary_service.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert not any(name.startswith(("aiogram", "app.bot")) for name in names)
+    assert not imports_openai(names)
+    assert "AsyncOpenAI" not in source and "responses.parse" not in source
+    assert "json.loads" not in source
+    assert "AnswerService" not in source and "analyze_answer" not in source
+
+
+def test_session_statistics_is_pure() -> None:
+    names = imported_names(APP_DIR / "services" / "session_statistics.py")
+
+    assert not any(
+        name.startswith(("aiogram", "sqlalchemy", "app.database", "app.bot", "app.services.openai"))
+        for name in names
+    )
+    assert not imports_openai(names)
+
+
+def test_summary_dto_is_not_orm_model() -> None:
+    from app.database.models import Base
+    from app.schemas.session_summary import InterviewSummary, StarStatistics
+
+    for dto in (InterviewSummary, StarStatistics):
+        assert not issubclass(dto, Base)

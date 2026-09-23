@@ -13,7 +13,13 @@ from app.schemas.knowledge import KnowledgeItem
 from app.schemas.question import InterviewQuestion, QuestionSet
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.exceptions import LLMServiceError
-from app.services.prompt_context import build_answer_context, build_questions_context
+from app.schemas.session_summary import InterviewSummary
+from app.services.prompt_context import (
+    build_answer_context,
+    build_questions_context,
+    build_summary_context,
+)
+from app.services.session_statistics import AnsweredQuestion, SessionStatistics
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 VACANCY_ANALYSIS_PROMPT = (PROMPTS_DIR / "vacancy_analysis.txt").read_text(encoding="utf-8")
 QUESTIONS_PROMPT = (PROMPTS_DIR / "questions.txt").read_text(encoding="utf-8")
 ANSWER_ANALYSIS_PROMPT = (PROMPTS_DIR / "answer_analysis.txt").read_text(encoding="utf-8")
+SESSION_SUMMARY_PROMPT = (PROMPTS_DIR / "session_summary.txt").read_text(encoding="utf-8")
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -86,6 +93,23 @@ class OpenAIService:
                 },
             ],
             AnswerAnalysis,
+        )
+
+    async def summarize_session(
+        self,
+        vacancy_analysis: VacancyAnalysis,
+        answered: list[AnsweredQuestion],
+        statistics: SessionStatistics,
+    ) -> InterviewSummary:
+        return await self._parse(
+            [
+                {"role": "system", "content": SESSION_SUMMARY_PROMPT},
+                {
+                    "role": "user",
+                    "content": build_summary_context(vacancy_analysis, answered, statistics),
+                },
+            ],
+            InterviewSummary,
         )
 
     async def _parse(self, input_messages: ResponseInputParam, text_format: type[ModelT]) -> ModelT:

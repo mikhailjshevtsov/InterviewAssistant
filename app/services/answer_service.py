@@ -162,9 +162,11 @@ class AnswerService:
                 await repository.save_analysis(
                     entity.id, analysis.model_dump_json(), analysis.score
                 )
-                await InterviewSessionRepository(session).update_status(
+                session_repository = InterviewSessionRepository(session)
+                await session_repository.update_status(
                     session_id, InterviewSessionStatus.ANSWER_RESULT
                 )
+                await session_repository.save_summary(session_id, None)
                 await session.commit()
             except SQLAlchemyError as exc:
                 await session.rollback()

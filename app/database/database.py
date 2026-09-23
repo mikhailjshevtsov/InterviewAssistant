@@ -47,27 +47,30 @@ AsyncSessionFactory = create_session_factory(engine)
 
 # create_all never alters existing tables, so columns added after a table was first
 # created are listed here until Alembic is introduced.
-ADDED_COLUMNS: tuple[tuple[str, str, str], ...] = (
+ADDED_COLUMNS: tuple[tuple[str, str, str, bool], ...] = (
     (
         "answers",
         "session_question_id",
         "INTEGER REFERENCES interview_questions(id) ON DELETE CASCADE",
+        True,
     ),
+    ("interview_sessions", "summary_json", "TEXT", False),
 )
 
 
 def _add_missing_columns(connection: Connection) -> None:
     inspector = inspect(connection)
     existing_tables = set(inspector.get_table_names())
-    for table, column, ddl in ADDED_COLUMNS:
+    for table, column, ddl, indexed in ADDED_COLUMNS:
         if table not in existing_tables:
             continue
         if column in {info["name"] for info in inspector.get_columns(table)}:
             continue
         connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
-        connection.execute(
-            text(f"CREATE INDEX IF NOT EXISTS ix_{table}_{column} ON {table} ({column})")
-        )
+        if indexed:
+            connection.execute(
+                text(f"CREATE INDEX IF NOT EXISTS ix_{table}_{column} ON {table} ({column})")
+            )
 
 
 async def init_db(target_engine: AsyncEngine | None = None) -> None:

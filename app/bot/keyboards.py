@@ -37,11 +37,26 @@ def question_selected_keyboard() -> InlineKeyboardMarkup:
     return _with_main_menu(("📋 К списку вопросов", MenuAction.BACK_QUESTIONS))
 
 
+SUMMARY_BUTTON_TEXT = "📊 Итоги подготовки"
+
+
 def answer_result_keyboard() -> InlineKeyboardMarkup:
     return _with_main_menu(
         ("➡️ Следующий вопрос", MenuAction.NEXT_QUESTION),
         ("🔁 Ответить заново", MenuAction.RETRY_ANSWER),
         ("📋 К списку вопросов", MenuAction.BACK_QUESTIONS),
+        (SUMMARY_BUTTON_TEXT, MenuAction.SESSION_SUMMARY),
+    )
+
+
+def summary_result_keyboard() -> InlineKeyboardMarkup:
+    return _with_main_menu(("📋 К вопросам", MenuAction.BACK_QUESTIONS))
+
+
+def summary_retry_keyboard() -> InlineKeyboardMarkup:
+    return _with_main_menu(
+        ("🔄 Повторить", MenuAction.SESSION_SUMMARY),
+        ("📋 К вопросам", MenuAction.BACK_QUESTIONS),
     )
 
 
@@ -52,6 +67,10 @@ def questions_keyboard(questions: list[InterviewQuestion]) -> InlineKeyboardMark
             text=question_button_text(index, question),
             callback_data=QuestionCallback(question_id=question.id),
         )
+    builder.button(
+        text=SUMMARY_BUTTON_TEXT,
+        callback_data=MenuCallback(action=MenuAction.SESSION_SUMMARY),
+    )
     builder.button(
         text="🏠 Главное меню",
         callback_data=MenuCallback(action=MenuAction.MAIN_MENU),

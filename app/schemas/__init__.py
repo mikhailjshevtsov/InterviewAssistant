@@ -6,16 +6,19 @@ from app.schemas.question import (
     QuestionDifficulty,
     QuestionSet,
 )
+from app.schemas.session_summary import InterviewSummary, StarStatistics
 from app.schemas.vacancy import VacancyAnalysis
 
 __all__ = [
     "AnswerAnalysis",
     "InterviewQuestion",
+    "InterviewSummary",
     "KnowledgeItem",
     "QuestionCategory",
     "QuestionDifficulty",
     "QuestionSet",
     "StarAnalysis",
     "StarElementStatus",
+    "StarStatistics",
     "VacancyAnalysis",
 ]

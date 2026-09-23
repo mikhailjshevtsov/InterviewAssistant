@@ -1,9 +1,14 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.database.models import InterviewSessionStatus
-from app.database.repositories import SessionQuestionRepository, VacancyRepository
+from app.database.repositories import (
+    AnswerRepository,
+    SessionQuestionRepository,
+    VacancyRepository,
+)
 from app.schemas.answer import AnswerAnalysis, StarAnalysis, StarElementStatus
 from app.schemas.question import InterviewQuestion
+from app.schemas.session_summary import InterviewSummary
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.interview_session_service import InterviewSessionService
 from app.services.user_service import UserService
@@ -57,10 +62,45 @@ ANSWER_ANALYSIS = AnswerAnalysis(
 )
 
 
+def make_questions(count: int) -> list[InterviewQuestion]:
+    return [
+        InterviewQuestion(
+            id=f"Q-{index:02d}",
+            question=f"Вопрос {index}: расскажите о работе с требованиями и SQL.",
+            category="behavioral" if index % 2 else "technical",
+            difficulty="medium",
+            star_required=bool(index % 2),
+        )
+        for index in range(1, count + 1)
+    ]
+
+
+def analysis_with_score(score: int) -> AnswerAnalysis:
+    return ANSWER_ANALYSIS.model_copy(update={"score": score})
+
+
+async def add_analyzed_answer(
+    session_factory: async_sessionmaker[AsyncSession],
+    session_id: int,
+    question_id: str,
+    analysis: AnswerAnalysis = ANSWER_ANALYSIS,
+    answer: str = ANSWER_TEXT,
+) -> None:
+    async with session_factory() as session:
+        question = await SessionQuestionRepository(session).get_by_question_id(
+            session_id, question_id
+        )
+        repository = AnswerRepository(session)
+        entity = await repository.create(session_id, question.question, answer, question.id)
+        await repository.save_analysis(entity.id, analysis.model_dump_json(), analysis.score)
+        await session.commit()
+
+
 async def create_session_with_questions(
     session_factory: async_sessionmaker[AsyncSession],
     telegram_id: int = 1,
     analyzed: bool = True,
+    questions: list[InterviewQuestion] = QUESTIONS,
 ) -> int:
     user = await UserService(session_factory).get_or_create_user(telegram_id, None, None)
     vacancy = await VacancyService(session_factory).create(user.id, VACANCY_TEXT)
@@ -73,7 +113,7 @@ async def create_session_with_questions(
                 vacancy.id, VACANCY_ANALYSIS.position, VACANCY_ANALYSIS.model_dump_json()
             )
         repository = SessionQuestionRepository(session)
-        for question in QUESTIONS:
+        for question in questions:
             await repository.create(
                 session_id=interview_session.id,
                 question_id=question.id,
@@ -84,3 +124,19 @@ async def create_session_with_questions(
             )
         await session.commit()
     return interview_session.id
+
+
+SUMMARY = InterviewSummary(
+    position="LLM-позиция",
+    answered_questions=99,
+    total_questions=99,
+    average_score=2.0,
+    star_statistics=None,
+    strong_sides=["Структурирует требования"],
+    weak_sides=["Мало измеримых результатов"],
+    star_strengths=["Action описан подробно"],
+    star_gaps=["Result часто отсутствует"],
+    recommendations=["Добавляйте метрики результата"],
+    priority_topics=["SQL JOIN", "BPMN"],
+    overall_summary="Хорошая база, но не хватает конкретных результатов.",
+)

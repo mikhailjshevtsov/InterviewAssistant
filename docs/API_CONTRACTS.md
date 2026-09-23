@@ -75,7 +75,30 @@ STAR:
 - action: found | missing | unclear
 - result: found | missing | unclear
 
-## 5. KnowledgeService
+## 5. SessionSummaryService
+
+`get_saved_summary(session_id: int) -> InterviewSummary | None` — сохранённый итог, если он соответствует текущим ответам; без вызова LLM.
+
+`create_summary(session_id: int) -> InterviewSummary` — берёт уже сохранённые AnswerAnalysis (повторно ответы не анализирует; для вопроса с несколькими попытками — последняя), считает статистику в Python, вызывает LLM один раз вне транзакции и сохраняет итог в `interview_sessions.summary_json` (статус `SUMMARY_RESULT`). Сохранённый итог переиспользуется; новый ответ в сессии его сбрасывает.
+
+Python рассчитывает: position, answered_questions, total_questions, average_score (среднее, округление до 0.1), star_statistics. Эти значения передаются модели в `<session_statistics>` и всегда перезаписывают значения из ответа модели. Модель формирует содержательную часть.
+
+Ошибки:
+- NoAnswersError (нет ни одного проанализированного ответа; LLM не вызывается)
+- LLMServiceError
+- EntityNotFoundError (нет сессии или анализа вакансии)
+- DatabaseError (с rollback; ответы не затрагиваются)
+
+InterviewSummary:
+- position: str | null
+- answered_questions: int (≥ 0, ≤ total_questions)
+- total_questions: int (≥ 0)
+- average_score: float | null (1..10; null, если ответов нет)
+- star_statistics: StarStatistics | null (answers, situation, task, action, result — сколько ответов на STAR-вопросы содержат элемент)
+- strong_sides, weak_sides, star_strengths, star_gaps, recommendations, priority_topics: list[str]
+- overall_summary: str
+
+## 6. KnowledgeService
 
 `find_relevant(profession: str | None, categories: list[QuestionCategory], keywords: list[str]) -> list[KnowledgeItem]`
 
@@ -90,7 +113,8 @@ KnowledgeItem (строка `knowledge_base/questions.csv`):
 
 На MVP используется CSV и детерминированный отбор: +3 за профессию, +2 за категорию, +1 за каждое совпавшее ключевое слово; запись попадает в выдачу только при совпадении профессии или ключевого слова; дубликаты удаляются, максимум 20 записей. Нет совпадений — `[]`. Vector database и embeddings не используются.
 
-## 6. Telegram callbacks
+## 7. Telegram callbacks
+- `menu:summary` — итоги подготовки: сохранённый итог или генерация (FSM → GENERATING_SUMMARY → SUMMARY_RESULT; при ошибке — возврат в предыдущее состояние).
 - `menu:generate_questions` — сформировать или показать вопросы текущей сессии.
 - `question:{question_id}` — выбрать вопрос, FSM → WAITING_ANSWER (или сохранённый результат, FSM → NEXT_ACTION).
 - Ответ текстом: WAITING_ANSWER → ANALYZING_ANSWER → ANSWER_RESULT → NEXT_ACTION; при ошибке LLM — обратно WAITING_ANSWER.
@@ -99,5 +123,5 @@ KnowledgeItem (строка `knowledge_base/questions.csv`):
 - `menu:retry_answer` — ответить на текущий вопрос заново, FSM → WAITING_ANSWER.
 - `menu:main_menu` — главное меню.
 
-## 7. Telegram layer
+## 8. Telegram layer
 Handlers orchestrate state transitions and call application services. Business logic must not be embedded in handlers.

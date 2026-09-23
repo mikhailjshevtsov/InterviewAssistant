@@ -241,3 +241,34 @@ async def test_init_db_adds_answer_link_to_existing_database(tmp_path: Path) -> 
     assert "session_question_id" in columns
     assert "ix_answers_session_question_id" in indexes
     assert rows == [("old answer",)]
+
+
+async def test_init_db_adds_summary_column_and_keeps_sessions(tmp_path: Path) -> None:
+    from sqlalchemy import text
+
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'old.db'}")
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "CREATE TABLE interview_sessions (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, "
+                "vacancy_id INTEGER NOT NULL, status VARCHAR(32) NOT NULL, created_at DATETIME)"
+            )
+        )
+        await connection.execute(
+            text("INSERT INTO interview_sessions (user_id, vacancy_id, status) VALUES (1, 1, 'QUESTIONS')")
+        )
+
+    await init_db(engine)
+    await init_db(engine)
+
+    async with engine.connect() as connection:
+        columns = await connection.run_sync(
+            lambda sync: {column["name"] for column in inspect(sync).get_columns("interview_sessions")}
+        )
+        rows = (
+            await connection.execute(text("SELECT status, summary_json FROM interview_sessions"))
+        ).all()
+    await engine.dispose()
+
+    assert "summary_json" in columns
+    assert rows == [("QUESTIONS", None)]

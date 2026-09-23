@@ -1,11 +1,22 @@
 import re
 
+from app.schemas.answer import AnswerAnalysis
 from app.schemas.knowledge import KnowledgeItem
 from app.schemas.question import InterviewQuestion
 from app.schemas.vacancy import VacancyAnalysis
+from app.services.session_statistics import AnsweredQuestion, SessionStatistics
 
 NOT_SPECIFIED = "не указано"
-CONTEXT_TAGS = ("vacancy_analysis", "knowledge_base", "interview_question", "candidate_answer")
+CONTEXT_TAGS = (
+    "vacancy_analysis",
+    "knowledge_base",
+    "interview_questions",
+    "interview_question",
+    "candidate_answers",
+    "candidate_answer",
+    "answer_analyses",
+    "session_statistics",
+)
 _CONTEXT_TAG_RE = re.compile(rf"<\s*/?\s*({'|'.join(CONTEXT_TAGS)})\s*>", re.IGNORECASE)
 
 
@@ -86,4 +97,68 @@ def build_questions_context(analysis: VacancyAnalysis, items: list[KnowledgeItem
         "<knowledge_base>\n"
         f"{format_knowledge_context(items)}\n"
         "</knowledge_base>"
+    )
+
+
+def format_statistics_context(statistics: SessionStatistics) -> str:
+    average = statistics.average_score if statistics.average_score is not None else "null"
+    lines = [
+        f"position: {statistics.position or NOT_SPECIFIED}",
+        f"answered_questions: {statistics.answered_questions}",
+        f"total_questions: {statistics.total_questions}",
+        f"average_score: {average}",
+    ]
+    star = statistics.star_statistics
+    if star is None:
+        lines.append("star_statistics: null")
+    else:
+        lines.append(
+            f"star_statistics: answers={star.answers}, situation={star.situation}, "
+            f"task={star.task}, action={star.action}, result={star.result}"
+        )
+    return "\n".join(lines)
+
+
+def format_analysis_context(analysis: AnswerAnalysis) -> str:
+    star = analysis.star
+    return "\n".join(
+        [
+            f"Оценка: {analysis.score}/10",
+            f"Тип вопроса: {analysis.question_type.value}",
+            f"STAR: situation={star.situation.value}, task={star.task.value}, "
+            f"action={star.action.value}, result={star.result.value}",
+            f"Сильные стороны:\n{_format_list(analysis.strengths)}",
+            f"Слабые стороны:\n{_format_list(analysis.weaknesses)}",
+            f"Рекомендации:\n{_format_list(analysis.recommendations)}",
+        ]
+    )
+
+
+def _numbered_blocks(answered: list[AnsweredQuestion], render) -> str:
+    return "\n\n".join(
+        f"[{item.question.id}]\n{neutralize_context_tags(render(item))}" for item in answered
+    )
+
+
+def build_summary_context(
+    analysis: VacancyAnalysis,
+    answered: list[AnsweredQuestion],
+    statistics: SessionStatistics,
+) -> str:
+    return (
+        "<vacancy_analysis>\n"
+        f"{neutralize_context_tags(format_vacancy_context(analysis))}\n"
+        "</vacancy_analysis>\n\n"
+        "<session_statistics>\n"
+        f"{neutralize_context_tags(format_statistics_context(statistics))}\n"
+        "</session_statistics>\n\n"
+        "<interview_questions>\n"
+        f"{_numbered_blocks(answered, lambda item: format_question_context(item.question))}\n"
+        "</interview_questions>\n\n"
+        "<candidate_answers>\n"
+        f"{_numbered_blocks(answered, lambda item: item.answer)}\n"
+        "</candidate_answers>\n\n"
+        "<answer_analyses>\n"
+        f"{_numbered_blocks(answered, lambda item: format_analysis_context(item.analysis))}\n"
+        "</answer_analyses>"
     )

@@ -9,7 +9,8 @@ class InterviewState(StatesGroup):
     GENERATING_QUESTIONS = State()
     QUESTIONS = State()
     WAITING_ANSWER = State()
-    # Declared for the next stages, not used yet.
     ANALYZING_ANSWER = State()
     ANSWER_RESULT = State()
     NEXT_ACTION = State()
+    GENERATING_SUMMARY = State()
+    SUMMARY_RESULT = State()

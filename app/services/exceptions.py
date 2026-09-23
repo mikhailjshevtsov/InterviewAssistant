@@ -10,6 +10,10 @@ class QuestionGenerationError(Exception):
     """Questions cannot be generated for the session (e.g. no vacancy analysis yet)."""
 
 
+class NoAnswersError(Exception):
+    """A session summary was requested before any answer was analyzed."""
+
+
 class InvalidVacancyTextError(Exception):
     def __init__(self, error: VacancyValidationError):
         super().__init__(f"Invalid vacancy text: {error}")

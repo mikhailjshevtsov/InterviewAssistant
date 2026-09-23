@@ -28,6 +28,7 @@ class InterviewSessionStatus(StrEnum):
     ANALYZING_ANSWER = "ANALYZING_ANSWER"
     ANSWER_RESULT = "ANSWER_RESULT"
     NEXT_ACTION = "NEXT_ACTION"
+    SUMMARY_RESULT = "SUMMARY_RESULT"
 
 
 class Base(DeclarativeBase):
@@ -87,6 +88,8 @@ class InterviewSession(Base):
         ForeignKey("vacancies.id", ondelete="CASCADE"), nullable=False, index=True
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    # InterviewSummary as JSON; cleared whenever a new answer is saved.
+    summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utc_now
     )

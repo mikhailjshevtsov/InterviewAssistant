@@ -8,6 +8,7 @@ from app.config import settings
 from app.bot.handlers.answers import router as answers_router
 from app.bot.handlers.questions import router as questions_router
 from app.bot.handlers.start import router as start_router
+from app.bot.handlers.summary import router as summary_router
 from app.bot.handlers.vacancy import router as vacancy_router
 from app.database.database import AsyncSessionFactory, engine, init_db
 from app.services.answer_service import AnswerService
@@ -15,6 +16,7 @@ from app.services.interview_session_service import InterviewSessionService
 from app.services.knowledge_service import KnowledgeService
 from app.services.openai_service import OpenAIService
 from app.services.question_service import QuestionService
+from app.services.session_summary_service import SessionSummaryService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
 
@@ -40,8 +42,11 @@ async def main() -> None:
             openai_service, KnowledgeService(), AsyncSessionFactory
         ),
         answer_service=AnswerService(openai_service, AsyncSessionFactory),
+        session_summary_service=SessionSummaryService(openai_service, AsyncSessionFactory),
     )
-    dp.include_routers(start_router, vacancy_router, questions_router, answers_router)
+    dp.include_routers(
+        start_router, vacancy_router, questions_router, answers_router, summary_router
+    )
 
     try:
         await dp.start_polling(bot)

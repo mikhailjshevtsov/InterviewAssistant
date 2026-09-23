@@ -41,6 +41,18 @@ class AnswerRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_analyzed_by_session(self, session_id: int) -> list[Answer]:
+        result = await self.session.execute(
+            select(Answer)
+            .where(
+                Answer.session_id == session_id,
+                Answer.session_question_id.is_not(None),
+                Answer.ai_analysis.is_not(None),
+            )
+            .order_by(Answer.id)
+        )
+        return list(result.scalars())
+
     async def save_analysis(self, answer_id: int, ai_analysis: str, score: int) -> Answer:
         answer = await self.get_by_id(answer_id)
         if answer is None:

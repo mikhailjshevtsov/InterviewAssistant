@@ -11,6 +11,7 @@ class MenuAction(StrEnum):
     BACK_QUESTIONS = "back_questions"
     NEXT_QUESTION = "next_question"
     RETRY_ANSWER = "retry_answer"
+    SESSION_SUMMARY = "summary"
 
 
 class MenuCallback(CallbackData, prefix="menu"):

@@ -39,6 +39,7 @@ NEXT = MenuCallback(action=MenuAction.NEXT_QUESTION).pack()
 RETRY = MenuCallback(action=MenuAction.RETRY_ANSWER).pack()
 BACK = MenuCallback(action=MenuAction.BACK_QUESTIONS).pack()
 MAIN = MenuCallback(action=MenuAction.MAIN_MENU).pack()
+SUMMARY = MenuCallback(action=MenuAction.SESSION_SUMMARY).pack()
 
 
 @pytest.fixture
@@ -138,7 +139,7 @@ async def test_answer_success_flow(
     assert "Нет измеримого результата" in text
     assert "[укажите результат в цифрах]" in text
     data = callback_data_of(sent.await_args.kwargs["reply_markup"])
-    assert data == [NEXT, RETRY, BACK, MAIN]
+    assert data == [NEXT, RETRY, BACK, SUMMARY, MAIN]
     fsm = await state.get_data()
     assert (fsm["session_id"], fsm["question_id"]) == (env.session_id, "Q-02")
     assert (fsm["user_id"], fsm["vacancy_id"]) == (1, 1)

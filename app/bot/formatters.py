@@ -5,6 +5,7 @@ from app.schemas.question import (
     QuestionDifficulty,
     QuestionSet,
 )
+from app.schemas.session_summary import InterviewSummary, StarStatistics
 from app.schemas.vacancy import VacancyAnalysis
 
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -108,6 +109,70 @@ def format_answer_analysis(analysis: AnswerAnalysis) -> str:
 def format_saved_answer(question: InterviewQuestion, analysis: AnswerAnalysis) -> str:
     header = f"❓ Вопрос {question.id}\n\n{question.question}\n\n✅ Вы уже отвечали на этот вопрос."
     return _truncate(f"{header}\n\n{format_answer_analysis(analysis)}", TELEGRAM_MESSAGE_LIMIT)
+
+
+def _bullets(items: list[str]) -> str:
+    return "\n".join(f"• {item}" for item in items)
+
+
+def _star_statistics_lines(statistics: StarStatistics) -> str:
+    lines = []
+    for name, found in (
+        ("Situation", statistics.situation),
+        ("Task", statistics.task),
+        ("Action", statistics.action),
+        ("Result", statistics.result),
+    ):
+        if found == statistics.answers:
+            icon = "🟢"
+        elif found * 2 >= statistics.answers:
+            icon = "🟡"
+        else:
+            icon = "🔴"
+        lines.append(f"{icon} {name} — {found} из {statistics.answers}")
+    return "\n".join(lines)
+
+
+def format_session_summary(summary: InterviewSummary) -> str:
+    average = (
+        f"{summary.average_score:.1f}/10" if summary.average_score is not None else "нет оценок"
+    )
+    header = "🎯 Итоги подготовки"
+    if summary.position:
+        header += f"\n\n{summary.position}"
+    sections = [
+        header,
+        "📊 Общий результат\n"
+        f"Отвечено: {summary.answered_questions} из {summary.total_questions}\n"
+        f"Средняя оценка: {average}",
+    ]
+    if summary.strong_sides:
+        sections.append("💪 Сильные стороны\n" + _bullets(summary.strong_sides))
+    if summary.weak_sides:
+        sections.append("⚠️ Зоны для улучшения\n" + _bullets(summary.weak_sides))
+
+    star_parts = []
+    if summary.star_statistics is not None:
+        star_parts.append(
+            "Элемент раскрыт в ответах на STAR-вопросы:\n"
+            + _star_statistics_lines(summary.star_statistics)
+        )
+    if summary.star_strengths:
+        star_parts.append("Получается:\n" + _bullets(summary.star_strengths))
+    if summary.star_gaps:
+        star_parts.append("Требует внимания:\n" + _bullets(summary.star_gaps))
+    if star_parts:
+        sections.append("⭐ STAR\n" + "\n\n".join(star_parts))
+
+    if summary.recommendations:
+        sections.append("💡 Рекомендации\n" + _bullets(summary.recommendations))
+    if summary.priority_topics:
+        topics = "\n".join(
+            f"{index}. {topic}" for index, topic in enumerate(summary.priority_topics, start=1)
+        )
+        sections.append(f"🔥 Что повторить в первую очередь\n{topics}")
+    sections.append(f"📝 Общий вывод\n{summary.overall_summary}")
+    return _truncate("\n\n".join(sections), TELEGRAM_MESSAGE_LIMIT)
 
 
 def format_selected_question(question: InterviewQuestion) -> str:

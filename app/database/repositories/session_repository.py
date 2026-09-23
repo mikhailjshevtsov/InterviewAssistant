@@ -37,3 +37,11 @@ class InterviewSessionRepository:
         interview_session.status = InterviewSessionStatus(status)
         await self.session.flush()
         return interview_session
+
+    async def save_summary(self, session_id: int, summary_json: str | None) -> InterviewSession:
+        interview_session = await self.get_by_id(session_id)
+        if interview_session is None:
+            raise EntityNotFoundError(f"InterviewSession {session_id} not found")
+        interview_session.summary_json = summary_json
+        await self.session.flush()
+        return interview_session
