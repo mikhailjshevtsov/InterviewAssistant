@@ -1,3 +1,4 @@
+from app.schemas.answer import AnswerAnalysis, StarElementStatus
 from app.schemas.question import (
     InterviewQuestion,
     QuestionCategory,
@@ -15,6 +16,16 @@ CATEGORY_LABELS = {
     QuestionCategory.BEHAVIORAL: "поведенческий",
     QuestionCategory.SITUATIONAL: "ситуационный",
     QuestionCategory.EXPERIENCE: "об опыте",
+}
+STAR_STATUS_ICONS = {
+    StarElementStatus.FOUND: "🟢",
+    StarElementStatus.UNCLEAR: "🟡",
+    StarElementStatus.MISSING: "🔴",
+}
+STAR_STATUS_LABELS = {
+    StarElementStatus.FOUND: "есть",
+    StarElementStatus.UNCLEAR: "недостаточно конкретно",
+    StarElementStatus.MISSING: "отсутствует",
 }
 DIFFICULTY_LABELS = {
     QuestionDifficulty.EASY: "лёгкий",
@@ -64,6 +75,39 @@ def format_question_set(question_set: QuestionSet) -> str:
 
 def question_button_text(index: int, question: InterviewQuestion) -> str:
     return _truncate(f"{index}. {question.question}", BUTTON_TEXT_LIMIT)
+
+
+def format_answer_analysis(analysis: AnswerAnalysis) -> str:
+    star = analysis.star
+    star_lines = "\n".join(
+        f"{STAR_STATUS_ICONS[status]} {name} — {STAR_STATUS_LABELS[status]}"
+        for name, status in (
+            ("Situation (ситуация)", star.situation),
+            ("Task (задача)", star.task),
+            ("Action (действия)", star.action),
+            ("Result (результат)", star.result),
+        )
+    )
+    sections = [f"📊 Оценка: {analysis.score}/10", f"⭐ STAR-анализ\n{star_lines}"]
+    for title, items in (
+        ("💪 Сильные стороны", analysis.strengths),
+        ("⚠️ Что улучшить", analysis.weaknesses),
+        ("💡 Рекомендации", analysis.recommendations),
+    ):
+        if items:
+            sections.append(title + "\n" + "\n".join(f"• {item}" for item in items))
+    improved = analysis.improved_answer or (
+        "Недостаточно данных для улучшенной версии — "
+        "добавьте в ответ конкретику из своего опыта."
+    )
+    sections.append(f"✨ Улучшенный вариант\n{improved}")
+    sections.append("➡️ Что дальше?")
+    return _truncate("\n\n".join(sections), TELEGRAM_MESSAGE_LIMIT)
+
+
+def format_saved_answer(question: InterviewQuestion, analysis: AnswerAnalysis) -> str:
+    header = f"❓ Вопрос {question.id}\n\n{question.question}\n\n✅ Вы уже отвечали на этот вопрос."
+    return _truncate(f"{header}\n\n{format_answer_analysis(analysis)}", TELEGRAM_MESSAGE_LIMIT)
 
 
 def format_selected_question(question: InterviewQuestion) -> str:

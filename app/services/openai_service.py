@@ -13,13 +13,14 @@ from app.schemas.knowledge import KnowledgeItem
 from app.schemas.question import InterviewQuestion, QuestionSet
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.exceptions import LLMServiceError
-from app.services.prompt_context import build_questions_context
+from app.services.prompt_context import build_answer_context, build_questions_context
 
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 VACANCY_ANALYSIS_PROMPT = (PROMPTS_DIR / "vacancy_analysis.txt").read_text(encoding="utf-8")
 QUESTIONS_PROMPT = (PROMPTS_DIR / "questions.txt").read_text(encoding="utf-8")
+ANSWER_ANALYSIS_PROMPT = (PROMPTS_DIR / "answer_analysis.txt").read_text(encoding="utf-8")
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -76,7 +77,16 @@ class OpenAIService:
         answer: str,
         vacancy_analysis: VacancyAnalysis,
     ) -> AnswerAnalysis:
-        raise NotImplementedError
+        return await self._parse(
+            [
+                {"role": "system", "content": ANSWER_ANALYSIS_PROMPT},
+                {
+                    "role": "user",
+                    "content": build_answer_context(question, answer, vacancy_analysis),
+                },
+            ],
+            AnswerAnalysis,
+        )
 
     async def _parse(self, input_messages: ResponseInputParam, text_format: type[ModelT]) -> ModelT:
         if self.client is None:

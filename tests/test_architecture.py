@@ -86,3 +86,50 @@ def test_dtos_are_not_orm_models() -> None:
 
     for dto in (KnowledgeItem, QuestionSet):
         assert not issubclass(dto, Base)
+
+
+ANSWER_FLOW_HANDLERS = [APP_DIR / "bot" / "handlers" / name for name in ("answers.py", "questions.py")]
+LOGIC_IN_HANDLERS = ("app.services.answer_validator", "app.services.prompt_context", "app.schemas.answer")
+
+
+@pytest.mark.parametrize("path", ANSWER_FLOW_HANDLERS, ids=lambda path: path.name)
+def test_answer_handlers_only_orchestrate(path: Path) -> None:
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert not imports_openai(names)
+    assert not any(name.startswith(("sqlalchemy", "app.database.repositories", "csv")) for name in names)
+    assert "app.database.models" not in names
+    assert "analyze_answer" not in source
+    assert ".score" not in source
+    assert "StarElementStatus" not in source
+
+
+def test_answer_service_is_framework_free() -> None:
+    names = imported_names(APP_DIR / "services" / "answer_service.py")
+    source = (APP_DIR / "services" / "answer_service.py").read_text(encoding="utf-8")
+
+    assert not any(name.startswith(("aiogram", "app.bot")) for name in names)
+    assert not imports_openai(names)
+    assert "AsyncOpenAI" not in source
+    assert "responses.parse" not in source
+    assert "json.loads" not in source
+
+
+def test_answer_analysis_is_single_openai_call_site() -> None:
+    sources = {
+        path.name: path.read_text(encoding="utf-8")
+        for path in APP_DIR.rglob("*.py")
+        if "responses.parse" in path.read_text(encoding="utf-8")
+    }
+
+    assert list(sources) == ["openai_service.py"]
+    assert sources["openai_service.py"].count("AsyncOpenAI(") == 1
+
+
+def test_answer_dtos_are_not_orm_models() -> None:
+    from app.database.models import Base
+    from app.schemas.answer import AnswerAnalysis, StarAnalysis
+
+    for dto in (AnswerAnalysis, StarAnalysis):
+        assert not issubclass(dto, Base)

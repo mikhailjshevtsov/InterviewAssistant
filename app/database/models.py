@@ -129,6 +129,13 @@ class Answer(Base):
         nullable=False,
         index=True,
     )
+    # Nullable only because SQLite can add a column to an existing table solely as NULL;
+    # AnswerService always sets it.
+    session_question_id: Mapped[int | None] = mapped_column(
+        ForeignKey("interview_questions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     question: Mapped[str] = mapped_column(Text, nullable=False)
     user_answer: Mapped[str] = mapped_column(Text, nullable=False)
     ai_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)

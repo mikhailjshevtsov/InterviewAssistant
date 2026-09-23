@@ -11,14 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.bot.callbacks import MenuAction, MenuCallback, QuestionCallback
 from app.bot.handlers.questions import (
-    answer_received,
     generate_questions_callback,
     question_selected_callback,
 )
 from app.bot.handlers.vacancy import vacancy_received
 from app.bot.states import InterviewState
 from app.bot.texts import (
-    ANSWER_RECEIVED_TEXT,
     QUESTION_NOT_FOUND_TEXT,
     QUESTIONS_IN_PROGRESS_TEXT,
     QUESTIONS_LLM_ERROR_TEXT,
@@ -26,6 +24,7 @@ from app.bot.texts import (
 )
 from app.schemas.question import InterviewQuestion, QuestionSet
 from app.schemas.vacancy import VacancyAnalysis
+from app.services.answer_service import AnswerService
 from app.services.exceptions import LLMServiceError
 from app.services.interview_session_service import InterviewSessionService
 from app.services.knowledge_service import KnowledgeService
@@ -227,7 +226,11 @@ async def test_select_question_waits_for_answer(
     callback = make_callback()
 
     await question_selected_callback(
-        callback, QuestionCallback(question_id="Q-03"), state, service
+        callback,
+        QuestionCallback(question_id="Q-03"),
+        state,
+        service,
+        AnswerService(llm, session_factory),
     )
 
     assert await state.get_state() == InterviewState.WAITING_ANSWER.state
@@ -248,21 +251,16 @@ async def test_select_unknown_question_shows_alert(
     callback = make_callback()
 
     await question_selected_callback(
-        callback, QuestionCallback(question_id="Q-99"), state, service
+        callback,
+        QuestionCallback(question_id="Q-99"),
+        state,
+        service,
+        AnswerService(llm, session_factory),
     )
 
     callback.answer.assert_awaited_once_with(QUESTION_NOT_FOUND_TEXT, show_alert=True)
     assert await state.get_state() == InterviewState.QUESTIONS.state
     sent.assert_not_awaited()
-
-
-async def test_answer_is_not_analyzed_yet(state: FSMContext, sent: AsyncMock) -> None:
-    await state.set_state(InterviewState.WAITING_ANSWER)
-
-    await answer_received(make_message("Мой ответ"), state)
-
-    assert sent.await_args.args[0] == ANSWER_RECEIVED_TEXT
-    assert await state.get_state() == InterviewState.QUESTIONS.state
 
 
 def test_question_callback_is_short_and_typed() -> None:

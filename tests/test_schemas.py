@@ -233,5 +233,7 @@ async def test_openai_stub_is_not_implemented() -> None:
 
     with pytest.raises(LLMServiceError, match="not configured"):
         await QuestionService(OpenAIService()).generate(analysis, [])
-    with pytest.raises(NotImplementedError):
-        await AnswerService(OpenAIService()).analyze(make_question(), "ответ", analysis)
+    with pytest.raises(LLMServiceError, match="not configured"):
+        await AnswerService(OpenAIService()).analyze(
+            make_question(), "Я проектировал REST API для сервиса заказов.", analysis
+        )

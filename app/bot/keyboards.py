@@ -30,11 +30,19 @@ def back_to_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def vacancy_result_keyboard() -> InlineKeyboardMarkup:
-    return _with_main_menu("🎯 Сформировать вопросы")
+    return _with_main_menu(("🎯 Сформировать вопросы", MenuAction.GENERATE_QUESTIONS))
 
 
 def question_selected_keyboard() -> InlineKeyboardMarkup:
-    return _with_main_menu("📋 К списку вопросов")
+    return _with_main_menu(("📋 К списку вопросов", MenuAction.BACK_QUESTIONS))
+
+
+def answer_result_keyboard() -> InlineKeyboardMarkup:
+    return _with_main_menu(
+        ("➡️ Следующий вопрос", MenuAction.NEXT_QUESTION),
+        ("🔁 Ответить заново", MenuAction.RETRY_ANSWER),
+        ("📋 К списку вопросов", MenuAction.BACK_QUESTIONS),
+    )
 
 
 def questions_keyboard(questions: list[InterviewQuestion]) -> InlineKeyboardMarkup:
@@ -52,13 +60,10 @@ def questions_keyboard(questions: list[InterviewQuestion]) -> InlineKeyboardMark
     return builder.as_markup()
 
 
-def _with_main_menu(questions_button_text: str) -> InlineKeyboardMarkup:
-    # Both buttons trigger GENERATE_QUESTIONS: it shows saved questions when they exist.
+def _with_main_menu(*buttons: tuple[str, MenuAction]) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(
-        text=questions_button_text,
-        callback_data=MenuCallback(action=MenuAction.GENERATE_QUESTIONS),
-    )
+    for text, action in buttons:
+        builder.button(text=text, callback_data=MenuCallback(action=action))
     builder.button(
         text="🏠 Главное меню",
         callback_data=MenuCallback(action=MenuAction.MAIN_MENU),

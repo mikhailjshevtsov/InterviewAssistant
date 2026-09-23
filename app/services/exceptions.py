@@ -1,3 +1,4 @@
+from app.services.answer_validator import AnswerValidationError
 from app.services.vacancy_validator import VacancyValidationError
 
 
@@ -12,4 +13,10 @@ class QuestionGenerationError(Exception):
 class InvalidVacancyTextError(Exception):
     def __init__(self, error: VacancyValidationError):
         super().__init__(f"Invalid vacancy text: {error}")
+        self.error = error
+
+
+class InvalidAnswerTextError(Exception):
+    def __init__(self, error: AnswerValidationError):
+        super().__init__(f"Invalid answer text: {error}")
         self.error = error

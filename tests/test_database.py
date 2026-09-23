@@ -204,3 +204,40 @@ async def test_data_persists_after_engine_restart(database_url: str) -> None:
 
 async def test_engine_fixture_uses_test_database(engine: AsyncEngine) -> None:
     assert "app.db" not in str(engine.url)
+
+
+async def test_init_db_adds_answer_link_to_existing_database(tmp_path: Path) -> None:
+    from sqlalchemy import text
+
+    engine = create_engine(f"sqlite+aiosqlite:///{tmp_path / 'old.db'}")
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "CREATE TABLE answers (id INTEGER PRIMARY KEY, session_id INTEGER NOT NULL, "
+                "question TEXT NOT NULL, user_answer TEXT NOT NULL, ai_analysis TEXT, "
+                "score INTEGER, created_at DATETIME)"
+            )
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO answers (session_id, question, user_answer) "
+                "VALUES (1, 'old question', 'old answer')"
+            )
+        )
+
+    await init_db(engine)
+    await init_db(engine)
+
+    async with engine.connect() as connection:
+        columns, indexes = await connection.run_sync(
+            lambda sync: (
+                {column["name"] for column in inspect(sync).get_columns("answers")},
+                {index["name"] for index in inspect(sync).get_indexes("answers")},
+            )
+        )
+        rows = (await connection.execute(text("SELECT user_answer FROM answers"))).all()
+    await engine.dispose()
+
+    assert "session_question_id" in columns
+    assert "ix_answers_session_question_id" in indexes
+    assert rows == [("old answer",)]

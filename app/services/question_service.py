@@ -110,6 +110,17 @@ class QuestionService:
                 raise DatabaseError("Failed to load question") from exc
         return self._to_dto(row) if row is not None else None
 
+    async def get_next_question(
+        self, session_id: int, question_id: str
+    ) -> InterviewQuestion | None:
+        """Returns the question after question_id in session order, or None after the last."""
+        questions = await self.list_questions(session_id)
+        ids = [question.id for question in questions]
+        if question_id not in ids:
+            return questions[0] if questions else None
+        position = ids.index(question_id) + 1
+        return questions[position] if position < len(questions) else None
+
     def _session(self) -> AsyncSession:
         if self.session_factory is None:
             raise RuntimeError("QuestionService was created without a session factory")

@@ -3,8 +3,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from app.bot.callbacks import MenuAction, MenuCallback, QuestionCallback
-from app.bot.formatters import format_question_set, format_selected_question
+from app.bot.formatters import (
+    format_question_set,
+    format_saved_answer,
+    format_selected_question,
+)
 from app.bot.keyboards import (
+    answer_result_keyboard,
     back_to_menu_keyboard,
     question_selected_keyboard,
     questions_keyboard,
@@ -12,7 +17,6 @@ from app.bot.keyboards import (
 )
 from app.bot.states import InterviewState
 from app.bot.texts import (
-    ANSWER_RECEIVED_TEXT,
     DATABASE_ERROR_TEXT,
     GENERATING_QUESTIONS_TEXT,
     QUESTION_NOT_FOUND_TEXT,
@@ -21,14 +25,17 @@ from app.bot.texts import (
     QUESTIONS_UNAVAILABLE_TEXT,
 )
 from app.database.exceptions import DatabaseError, EntityNotFoundError
-from app.schemas.question import QuestionSet
+from app.schemas.question import InterviewQuestion, QuestionSet
+from app.services.answer_service import AnswerService
 from app.services.exceptions import LLMServiceError, QuestionGenerationError
 from app.services.question_service import QuestionService
 
 router = Router(name="questions")
 
 
-@router.callback_query(MenuCallback.filter(F.action == MenuAction.GENERATE_QUESTIONS))
+@router.callback_query(
+    MenuCallback.filter(F.action.in_({MenuAction.GENERATE_QUESTIONS, MenuAction.BACK_QUESTIONS}))
+)
 async def generate_questions_callback(
     callback: CallbackQuery, state: FSMContext, question_service: QuestionService
 ) -> None:
@@ -82,6 +89,7 @@ async def question_selected_callback(
     callback_data: QuestionCallback,
     state: FSMContext,
     question_service: QuestionService,
+    answer_service: AnswerService,
 ) -> None:
     session_id = (await state.get_data()).get("session_id")
     message = callback.message
@@ -96,10 +104,30 @@ async def question_selected_callback(
     if question is None:
         await callback.answer(QUESTION_NOT_FOUND_TEXT, show_alert=True)
         return
-
-    await state.update_data(question_id=question.id)
-    await state.set_state(InterviewState.WAITING_ANSWER)
     await callback.answer()
+    try:
+        await open_question(message, state, session_id, question, answer_service)
+    except DatabaseError:
+        await message.answer(DATABASE_ERROR_TEXT, reply_markup=question_selected_keyboard())
+
+
+async def open_question(
+    message: Message,
+    state: FSMContext,
+    session_id: int,
+    question: InterviewQuestion,
+    answer_service: AnswerService,
+) -> None:
+    """Shows a question; an already analyzed one is shown with its saved result."""
+    await state.update_data(question_id=question.id)
+    saved = await answer_service.get_saved_analysis(session_id, question.id)
+    if saved is not None:
+        await state.set_state(InterviewState.NEXT_ACTION)
+        await message.answer(
+            format_saved_answer(question, saved), reply_markup=answer_result_keyboard()
+        )
+        return
+    await state.set_state(InterviewState.WAITING_ANSWER)
     await message.answer(
         format_selected_question(question), reply_markup=question_selected_keyboard()
     )
@@ -108,9 +136,3 @@ async def question_selected_callback(
 @router.message(InterviewState.GENERATING_QUESTIONS)
 async def generating_questions_message(message: Message) -> None:
     await message.answer(QUESTIONS_IN_PROGRESS_TEXT)
-
-
-@router.message(InterviewState.WAITING_ANSWER)
-async def answer_received(message: Message, state: FSMContext) -> None:
-    await state.set_state(InterviewState.QUESTIONS)
-    await message.answer(ANSWER_RECEIVED_TEXT, reply_markup=question_selected_keyboard())

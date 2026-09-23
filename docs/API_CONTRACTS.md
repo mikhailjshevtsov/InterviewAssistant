@@ -50,6 +50,16 @@ InterviewQuestion:
 
 `analyze(question: InterviewQuestion, answer: str, vacancy_analysis: VacancyAnalysis) -> AnswerAnalysis`
 
+`analyze_for_session(session_id: int, question_id: str, answer: str) -> AnswerAnalysis` — проверяет ответ (пустой, тривиальный вроде «да» / «не знаю» или короче 10 символов — без вызова LLM), берёт сохранённые вопрос и VacancyAnalysis, вызывает LLM один раз вне транзакции, затем в одной транзакции сохраняет Answer (связь с `interview_questions.id`), анализ и статус сессии `answer_result`.
+
+`get_saved_analysis(session_id: int, question_id: str) -> AnswerAnalysis | None` — последний сохранённый анализ; повторный анализ только по явному действию пользователя.
+
+Ошибки:
+- InvalidAnswerTextError (empty | too_short)
+- LLMServiceError
+- EntityNotFoundError (нет вопроса или анализа вакансии)
+- DatabaseError (с rollback)
+
 AnswerAnalysis:
 - score: int (1..10)
 - question_type: technical | behavioral | situational | experience
@@ -82,7 +92,12 @@ KnowledgeItem (строка `knowledge_base/questions.csv`):
 
 ## 6. Telegram callbacks
 - `menu:generate_questions` — сформировать или показать вопросы текущей сессии.
-- `question:{question_id}` — выбрать вопрос, FSM → WAITING_ANSWER.
+- `question:{question_id}` — выбрать вопрос, FSM → WAITING_ANSWER (или сохранённый результат, FSM → NEXT_ACTION).
+- Ответ текстом: WAITING_ANSWER → ANALYZING_ANSWER → ANSWER_RESULT → NEXT_ACTION; при ошибке LLM — обратно WAITING_ANSWER.
+- `menu:next_question` — следующий вопрос, FSM → WAITING_ANSWER; после последнего — список, FSM → QUESTIONS.
+- `menu:back_questions` — список вопросов, FSM → QUESTIONS.
+- `menu:retry_answer` — ответить на текущий вопрос заново, FSM → WAITING_ANSWER.
+- `menu:main_menu` — главное меню.
 
 ## 7. Telegram layer
 Handlers orchestrate state transitions and call application services. Business logic must not be embedded in handlers.

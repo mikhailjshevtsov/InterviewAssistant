@@ -8,6 +8,9 @@ class MenuAction(StrEnum):
     HELP = "help"
     MAIN_MENU = "main"
     GENERATE_QUESTIONS = "generate_questions"
+    BACK_QUESTIONS = "back_questions"
+    NEXT_QUESTION = "next_question"
+    RETRY_ANSWER = "retry_answer"
 
 
 class MenuCallback(CallbackData, prefix="menu"):
