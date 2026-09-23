@@ -43,6 +43,7 @@ def test_each_profession_covers_all_categories(items, profession: str) -> None:
     categories = Counter(item.category for item in items if item.profession == profession)
 
     assert set(categories) == set(QuestionCategory)
+    assert all(count >= 3 for count in categories.values())
     assert sum(categories.values()) >= 12
     assert any(item.star_required for item in items if item.profession == profession)
 

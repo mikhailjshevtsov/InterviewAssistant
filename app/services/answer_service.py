@@ -41,18 +41,23 @@ class AnswerService:
         self.session_factory = session_factory
         self.knowledge_service = knowledge_service
 
+    @staticmethod
+    def require_valid_answer(text: str | None) -> str:
+        validation = validate_answer_text(text)
+        if validation.error is not None:
+            raise InvalidAnswerTextError(validation.error)
+        return validation.text
+
     async def analyze(
         self,
         question: InterviewQuestion,
         answer: str,
         vacancy_analysis: VacancyAnalysis,
     ) -> AnswerAnalysis:
-        validation = validate_answer_text(answer)
-        if validation.error is not None:
-            raise InvalidAnswerTextError(validation.error)
+        normalized = self.require_valid_answer(answer)
         star_examples = await self._find_star_examples(question, vacancy_analysis)
         analysis = await self.llm.analyze_answer(
-            question, validation.text, vacancy_analysis, star_examples
+            question, normalized, vacancy_analysis, star_examples
         )
         if not isinstance(analysis, AnswerAnalysis):
             raise LLMServiceError("LLM returned no AnswerAnalysis")
@@ -61,25 +66,23 @@ class AnswerService:
     async def analyze_for_session(
         self, session_id: int, question_id: str, answer: str
     ) -> AnswerAnalysis:
-        validation = validate_answer_text(answer)
-        if validation.error is not None:
-            raise InvalidAnswerTextError(validation.error)
+        normalized = self.require_valid_answer(answer)
 
         context = await self._load_context(session_id, question_id)
         logger.info(
             "Answer analysis started (session_id=%s, question_id=%s, answer_length=%s)",
             session_id,
             question_id,
-            len(validation.text),
+            len(normalized),
         )
-        analysis = await self.analyze(context.question, validation.text, context.vacancy_analysis)
+        analysis = await self.analyze(context.question, normalized, context.vacancy_analysis)
         logger.info(
             "Answer analysis completed (session_id=%s, question_id=%s, score=%s)",
             session_id,
             question_id,
             analysis.score,
         )
-        await self._save(session_id, context, validation.text, analysis)
+        await self._save(session_id, context, normalized, analysis)
         return analysis
 
     async def get_saved_analysis(self, session_id: int, question_id: str) -> AnswerAnalysis | None:

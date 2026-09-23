@@ -14,6 +14,12 @@ class InterviewSessionService:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         self.session_factory = session_factory
 
+    async def start_vacancy_analysis(self, user_id: int, vacancy_id: int) -> InterviewSession:
+        return await self.create(user_id, vacancy_id, InterviewSessionStatus.ANALYZING_VACANCY)
+
+    async def mark_vacancy_result(self, session_id: int) -> InterviewSession:
+        return await self.update_status(session_id, InterviewSessionStatus.VACANCY_RESULT)
+
     async def create(
         self,
         user_id: int,

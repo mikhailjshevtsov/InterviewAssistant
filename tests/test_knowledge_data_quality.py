@@ -35,7 +35,7 @@ def test_cli_reports_problems(knowledge_dir: Path, capsys: pytest.CaptureFixture
     append(knowledge_dir / "questions.csv", '1,analyst,technical,"Новый вопрос?",easy,false,"SQL"')
 
     assert main([str(knowledge_dir)]) == 1
-    assert "questions.csv:54: repeats id from line 2" in capsys.readouterr().out
+    assert "questions.csv:58: repeats id from line 2" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

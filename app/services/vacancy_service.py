@@ -23,10 +23,18 @@ class VacancyService:
         self.session_factory = session_factory
         self.llm = llm or OpenAIService()
 
-    async def create(self, user_id: int, vacancy_text: str) -> Vacancy:
+    @staticmethod
+    def require_valid_text(text: str | None) -> str:
+        validation = validate_vacancy_text(text)
+        if validation.error is not None:
+            raise InvalidVacancyTextError(validation.error)
+        return validation.text
+
+    async def create(self, user_id: int, vacancy_text: str | None) -> Vacancy:
+        normalized = self.require_valid_text(vacancy_text)
         async with self.session_factory() as session:
             try:
-                vacancy = await VacancyRepository(session).create(user_id, vacancy_text)
+                vacancy = await VacancyRepository(session).create(user_id, normalized)
                 await session.commit()
                 await session.refresh(vacancy)
             except SQLAlchemyError as exc:
@@ -37,17 +45,18 @@ class VacancyService:
 
     async def analyze(self, vacancy_id: int) -> VacancyAnalysis:
         vacancy_text = await self._get_vacancy_text(vacancy_id)
-        validation = validate_vacancy_text(vacancy_text)
-        if validation.error is not None:
+        try:
+            normalized = self.require_valid_text(vacancy_text)
+        except InvalidVacancyTextError as exc:
             logger.info(
                 "Vacancy analysis skipped: invalid text (vacancy_id=%s, reason=%s)",
                 vacancy_id,
-                validation.error,
+                exc.error,
             )
-            raise InvalidVacancyTextError(validation.error)
+            raise
 
         logger.info("Vacancy analysis started (vacancy_id=%s)", vacancy_id)
-        analysis = await self.llm.analyze_vacancy(validation.text)
+        analysis = await self.llm.analyze_vacancy(normalized)
         logger.info("Vacancy analysis completed (vacancy_id=%s)", vacancy_id)
 
         await self._save_analysis(vacancy_id, analysis)

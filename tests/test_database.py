@@ -69,7 +69,7 @@ async def test_vacancy_is_created_and_linked_to_user(
 
     assert vacancy.id is not None
     assert vacancy.user_id == user.id
-    assert vacancy.text == VACANCY_TEXT
+    assert vacancy.text == VACANCY_TEXT.strip()
     assert vacancy.position is None
     assert vacancy.analysis_json is None
 

@@ -5,6 +5,7 @@ import pytest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.fsm.storage.memory import MemoryStorage
+from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -14,7 +15,7 @@ from app.bot.states import InterviewState
 from app.bot.texts import DATABASE_ERROR_TEXT, LLM_ERROR_TEXT
 from app.database.database import create_engine, create_session_factory, init_db
 from app.database.exceptions import DatabaseError, EntityNotFoundError
-from app.database.models import InterviewSession, InterviewSessionStatus
+from app.database.models import InterviewSession, InterviewSessionStatus, Vacancy
 from app.database.repositories import VacancyRepository
 from app.schemas.vacancy import VacancyAnalysis
 from app.services.exceptions import InvalidVacancyTextError, LLMServiceError
@@ -44,6 +45,17 @@ async def create_vacancy(
     return vacancy.id
 
 
+async def insert_raw_vacancy(
+    session_factory: async_sessionmaker[AsyncSession], text: str
+) -> int:
+    user = await UserService(session_factory).get_or_create_user(1, None, None)
+    async with session_factory() as session:
+        vacancy = await VacancyRepository(session).create(user.id, text)
+        await session.commit()
+        await session.refresh(vacancy)
+    return vacancy.id
+
+
 async def load_vacancy(session_factory: async_sessionmaker[AsyncSession], vacancy_id: int):
     async with session_factory() as session:
         return await VacancyRepository(session).get_by_id(vacancy_id)
@@ -66,6 +78,23 @@ async def test_analysis_is_saved_to_database(
 
 
 @pytest.mark.parametrize(
+    "text",
+    ["", "   \n\t ", "Python developer"],
+)
+async def test_create_rejects_invalid_vacancy(
+    session_factory: async_sessionmaker[AsyncSession],
+    text: str,
+) -> None:
+    user = await UserService(session_factory).get_or_create_user(1, None, None)
+
+    with pytest.raises(InvalidVacancyTextError):
+        await VacancyService(session_factory).create(user.id, text)
+
+    async with session_factory() as session:
+        assert await session.scalar(select(func.count()).select_from(Vacancy)) == 0
+
+
+@pytest.mark.parametrize(
     ("text", "error"),
     [
         ("", VacancyValidationError.EMPTY),
@@ -78,7 +107,7 @@ async def test_invalid_vacancy_does_not_call_llm(
     text: str,
     error: VacancyValidationError,
 ) -> None:
-    vacancy_id = await create_vacancy(session_factory, text)
+    vacancy_id = await insert_raw_vacancy(session_factory, text)
     llm = make_llm(return_value=ANALYSIS)
 
     with pytest.raises(InvalidVacancyTextError) as exc_info:

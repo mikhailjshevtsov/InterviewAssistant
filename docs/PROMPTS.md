@@ -1,6 +1,8 @@
 # Промпты
 
-Все промпты лежат в `app/prompts/` и загружаются один раз при импорте `app/services/openai_service.py`. Вызовы идут только через `OpenAIService` (единственный `AsyncOpenAI` клиент, Responses API, `responses.parse(text_format=<Pydantic-модель>)`, `store=False`). Ответ модели разбирается SDK по JSON Schema Pydantic-модели (Structured Outputs, `strict: true`, `additionalProperties: false`); ручного `json.loads` нет.
+Рабочие промпты лежат в `app/prompts/` и загружаются один раз при импорте `app/services/openai_service.py`: `vacancy_analysis.txt`, `questions.txt`, `answer_analysis.txt`, `session_summary.txt`. Вызовы идут только через `OpenAIService` (единственный `AsyncOpenAI` клиент, Responses API, `responses.parse(text_format=<Pydantic-модель>)`, `store=False`). Ответ модели разбирается SDK по JSON Schema Pydantic-модели (Structured Outputs, `strict: true`, `additionalProperties: false`); ручного `json.loads` нет.
+
+`app/prompts/system.txt` — legacy-файл с общими целями ассистента. Он не загружается и не отправляется в OpenAI; рабочие инструкции задаются четырьмя файлами выше. Не удаляйте его без отдельного решения: это справочный текст, а не активный промпт.
 
 Структура запроса у всех промптов одинаковая:
 

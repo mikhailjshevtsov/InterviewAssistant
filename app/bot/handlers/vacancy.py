@@ -13,16 +13,11 @@ from app.bot.texts import (
     LLM_ERROR_TEXT,
 )
 from app.database.exceptions import DatabaseError
-from app.database.models import InterviewSessionStatus
 from app.services.exceptions import InvalidVacancyTextError, LLMServiceError
 from app.services.interview_session_service import InterviewSessionService
 from app.services.user_service import UserService
 from app.services.vacancy_service import VacancyService
-from app.services.vacancy_validator import (
-    MIN_VACANCY_LENGTH,
-    VacancyValidationError,
-    validate_vacancy_text,
-)
+from app.services.vacancy_validator import MIN_VACANCY_LENGTH, VacancyValidationError
 
 router = Router(name="vacancy")
 
@@ -60,22 +55,19 @@ async def vacancy_received(
     vacancy_service: VacancyService,
     interview_session_service: InterviewSessionService,
 ) -> None:
-    result = validate_vacancy_text(message.text)
-    if result.error is not None:
+    try:
+        user_id = await _get_user_id(message, state, user_service)
+        vacancy = await vacancy_service.create(user_id, message.text)
+        interview_session = await interview_session_service.start_vacancy_analysis(
+            user_id=user_id,
+            vacancy_id=vacancy.id,
+        )
+    except InvalidVacancyTextError as exc:
         await message.answer(
-            VALIDATION_ERROR_TEXTS[result.error],
+            VALIDATION_ERROR_TEXTS[exc.error],
             reply_markup=back_to_menu_keyboard(),
         )
         return
-
-    try:
-        user_id = await _get_user_id(message, state, user_service)
-        vacancy = await vacancy_service.create(user_id, result.text)
-        interview_session = await interview_session_service.create(
-            user_id=user_id,
-            vacancy_id=vacancy.id,
-            status=InterviewSessionStatus.ANALYZING_VACANCY,
-        )
     except DatabaseError:
         await message.answer(DATABASE_ERROR_TEXT, reply_markup=back_to_menu_keyboard())
         return
@@ -90,9 +82,7 @@ async def vacancy_received(
 
     try:
         analysis = await vacancy_service.analyze(vacancy.id)
-        await interview_session_service.update_status(
-            interview_session.id, InterviewSessionStatus.VACANCY_RESULT
-        )
+        await interview_session_service.mark_vacancy_result(interview_session.id)
     except (LLMServiceError, InvalidVacancyTextError):
         await _return_to_waiting_vacancy(message, state, LLM_ERROR_TEXT)
         return

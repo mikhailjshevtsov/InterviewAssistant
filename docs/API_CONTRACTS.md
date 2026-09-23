@@ -7,9 +7,11 @@ DTO описаны Pydantic-моделями в `app/schemas/` и не связ�
 
 ## 2. VacancyService
 
-`analyze(vacancy_id: int) -> VacancyAnalysis`
+`create(user_id: int, vacancy_text: str | None) -> Vacancy` — проверяет текст (не пустой, не короче 100 символов) и сохраняет вакансию. Невалидный текст не пишется в БД.
 
-Ответ:
+`analyze(vacancy_id: int) -> VacancyAnalysis` — повторно проверяет сохранённый текст, вызывает LLM один раз и сохраняет `VacancyAnalysis` в `vacancies.analysis_json`.
+
+Ответ `analyze`:
 - position: str | null
 - company: str | null
 - hard_skills: list[str]
@@ -19,9 +21,10 @@ DTO описаны Pydantic-моделями в `app/schemas/` и не связ�
 - interview_topics: list[str]
 
 Ошибки:
-- ValidationError
+- InvalidVacancyTextError (empty | too_short)
 - LLMServiceError
-- VacancyAnalysisError
+- EntityNotFoundError
+- DatabaseError
 
 ## 3. QuestionService
 

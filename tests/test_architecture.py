@@ -36,6 +36,7 @@ def test_bot_layer_does_not_import_openai_or_database_internals(path: Path) -> N
     assert not imports_openai(names)
     assert not any(name.startswith("sqlalchemy") for name in names)
     assert not any(name.startswith("app.database.repositories") for name in names)
+    assert "app.database.models" not in names
 
 
 @pytest.mark.parametrize("path", SERVICE_FILES, ids=lambda path: path.name)
@@ -93,6 +94,18 @@ ANSWER_FLOW_HANDLERS = [APP_DIR / "bot" / "handlers" / name for name in ("answer
 LOGIC_IN_HANDLERS = ("app.services.answer_validator", "app.services.prompt_context", "app.schemas.answer")
 
 
+def test_vacancy_handler_only_orchestrates() -> None:
+    path = APP_DIR / "bot" / "handlers" / "vacancy.py"
+    names = imported_names(path)
+    source = path.read_text(encoding="utf-8")
+
+    assert "validate_vacancy_text" not in source
+    assert "InterviewSessionStatus" not in source
+    assert "app.database.models" not in names
+    assert "start_vacancy_analysis" in source
+    assert "mark_vacancy_result" in source
+
+
 @pytest.mark.parametrize("path", ANSWER_FLOW_HANDLERS, ids=lambda path: path.name)
 def test_answer_handlers_only_orchestrate(path: Path) -> None:
     names = imported_names(path)
@@ -101,6 +114,7 @@ def test_answer_handlers_only_orchestrate(path: Path) -> None:
     assert not imports_openai(names)
     assert not any(name.startswith(("sqlalchemy", "app.database.repositories", "csv")) for name in names)
     assert "app.database.models" not in names
+    assert "validate_answer_text" not in source
     assert "analyze_answer" not in source
     assert ".score" not in source
     assert "StarElementStatus" not in source

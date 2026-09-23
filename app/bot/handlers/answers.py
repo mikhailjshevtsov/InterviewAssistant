@@ -26,7 +26,7 @@ from app.bot.texts import (
 from app.database.exceptions import DatabaseError, EntityNotFoundError
 from app.schemas.question import QuestionSet
 from app.services.answer_service import AnswerService
-from app.services.answer_validator import AnswerValidationError, validate_answer_text
+from app.services.answer_validator import AnswerValidationError
 from app.services.exceptions import InvalidAnswerTextError, LLMServiceError
 from app.services.question_service import QuestionService
 
@@ -42,9 +42,10 @@ ANSWER_VALIDATION_TEXTS = {
 async def answer_received(
     message: Message, state: FSMContext, answer_service: AnswerService
 ) -> None:
-    validation = validate_answer_text(message.text)
-    if validation.error is not None:
-        await message.answer(ANSWER_VALIDATION_TEXTS[validation.error])
+    try:
+        answer_text = AnswerService.require_valid_answer(message.text)
+    except InvalidAnswerTextError as exc:
+        await message.answer(ANSWER_VALIDATION_TEXTS[exc.error])
         return
     data = await state.get_data()
     session_id, question_id = data.get("session_id"), data.get("question_id")
@@ -57,7 +58,7 @@ async def answer_received(
     await message.answer(ANALYZING_ANSWER_TEXT)
     try:
         analysis = await answer_service.analyze_for_session(
-            session_id, question_id, validation.text
+            session_id, question_id, answer_text
         )
     except InvalidAnswerTextError as exc:
         await _back_to_waiting(message, state, ANSWER_VALIDATION_TEXTS[exc.error])

@@ -1,51 +1,51 @@
 # Interview AI Assistant MVP
 
-Telegram AI-assistant for interview preparation.
+Telegram ИИ-ассистент для подготовки к собеседованиям.
 
-## Stack
+## Стек
 - Python 3.12+
 - aiogram 3.x
 - OpenAI API
 - SQLite
 - CSV Knowledge Base
 
-## Current stage
-Stage 8: knowledge base and documentation.
+## Текущий этап
+Stage 9: MVP Release Candidate (hardening, выравнивание документации, качество базы знаний).
 
-The bot analyzes a vacancy, generates interview questions grounded in the CSV knowledge base, analyzes answers (score, STAR, recommendations, improved answer), builds a session summary and shows interview checklists. All OpenAI calls use the Responses API with Structured Outputs (Pydantic). Data is stored in `data/app.db`.
+Бот анализирует вакансию, формирует вопросы с опорой на CSV-базу знаний, разбирает ответы (оценка, STAR, рекомендации, улучшенный ответ), строит итог сессии и показывает чек-листы подготовки. Все вызовы OpenAI идут через Responses API со Structured Outputs (Pydantic). Данные хранятся в `data/app.db`.
 
-## Run
-1. Create `.env` from `.env.example`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run: `python -m app.main`
+## Запуск
+1. Создайте `.env` по образцу `.env.example`
+2. Установите зависимости: `pip install -r requirements.txt`
+3. Запустите: `python -m app.main`
 
-## Tests
-`python -m pytest` — tests use a temporary SQLite database, never `data/app.db`, and never call the real OpenAI API.
+## Тесты
+`python -m pytest` — тесты используют временную базу SQLite, не трогают `data/app.db` и не вызывают реальный OpenAI API.
 
-`python -m pytest -m integration` — real OpenAI API tests; skipped when `OPENAI_API_KEY` is not set.
+`python -m pytest -m integration` — тесты с реальным OpenAI API; пропускаются, если не задан `OPENAI_API_KEY`.
 
-# Knowledge Base
+# База знаний
 
-The knowledge base is a set of UTF-8 CSV files in `knowledge_base/`. It can be edited without changing Python code; restart the bot to apply changes.
+База знаний — набор CSV-файлов в кодировке UTF-8 в каталоге `knowledge_base/`. Их можно редактировать без изменения Python-кода; чтобы применить изменения, перезапустите бота.
 
-| File | Content | Used by |
+| Файл | Содержание | Где используется |
 |---|---|---|
-| `professions.csv` | profession codes, display titles, aliases used to recognize vacancy titles | profession matching, checklist titles, validation |
-| `questions.csv` | typical interview questions for analyst, manager, creative and technical professions (technical, behavioral, situational, experience) | question generation (`<knowledge_base>` prompt block) |
-| `star_examples.csv` | fictional STAR answer examples | answer analysis for STAR questions (`<star_examples>` prompt block, structural reference only) |
-| `checklists.csv` | checklist items: before the interview, what to bring, appearance, final check, during, end, after | «📋 Чек-листы» in Telegram, no OpenAI call |
+| `professions.csv` | коды профессий, отображаемые названия, псевдонимы для распознавания должностей в вакансиях | сопоставление профессии, названия в чек-листах, валидация |
+| `questions.csv` | типовые вопросы собеседования для аналитиков, менеджеров, креативных и технических профессий (technical, behavioral, situational, experience) | генерация вопросов (блок `<knowledge_base>` в промпте) |
+| `star_examples.csv` | вымышленные примеры ответов по STAR | анализ ответов на STAR-вопросы (блок `<star_examples>`, только образец структуры) |
+| `checklists.csv` | пункты чек-листов: до интервью, что взять с собой, внешний вид, финальная проверка, во время, завершение, после | «📋 Чек-листы» в Telegram, без вызова OpenAI |
 
-Data flow: `CSV → CsvKnowledgeRepository → KnowledgeService / ChecklistService → QuestionService / AnswerService / Telegram handler`. Relevant rows are selected deterministically by profession, category and keywords; no vector database or embeddings. A missing or broken file does not stop the bot: the related feature continues without that data.
+Поток данных: `CSV → CsvKnowledgeRepository → KnowledgeService / ChecklistService → QuestionService / AnswerService / Telegram handler`. Подходящие строки отбираются детерминированно по профессии, категории и ключевым словам; векторная база и embeddings не используются. Отсутствующий или повреждённый файл не останавливает бота: связанная функция продолжает работать без этих данных.
 
-Validate the knowledge base after editing:
+После правок проверьте базу знаний:
 
 ```powershell
 python -m app.knowledge.validate
 ```
 
-Documentation:
-- [docs/KNOWLEDGE_BASE_GUIDE.md](docs/KNOWLEDGE_BASE_GUIDE.md) — file formats, columns, allowed values, filling rules, Google Sheets transfer, "UX Researcher" example;
-- [docs/ADAPTATION_GUIDE.md](docs/ADAPTATION_GUIDE.md) — how to adapt the assistant to a new profession;
-- [docs/PROMPTS.md](docs/PROMPTS.md) — prompts, inputs, outputs, Pydantic models, untrusted-data rules;
-- [docs/USER_SCENARIOS.md](docs/USER_SCENARIOS.md) — user scenarios UC-01…UC-09;
-- [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) — service contracts and Telegram callbacks.
+Документация:
+- [docs/KNOWLEDGE_BASE_GUIDE.md](docs/KNOWLEDGE_BASE_GUIDE.md) — форматы файлов, колонки, допустимые значения, правила заполнения, перенос в Google Sheets, пример «UX Researcher»;
+- [docs/ADAPTATION_GUIDE.md](docs/ADAPTATION_GUIDE.md) — как адаптировать ассистента под новую профессию;
+- [docs/PROMPTS.md](docs/PROMPTS.md) — промпты, входы, выходы, модели Pydantic, правила для недоверенных данных;
+- [docs/USER_SCENARIOS.md](docs/USER_SCENARIOS.md) — пользовательские сценарии UC-01…UC-09;
+- [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) — контракты сервисов и Telegram callbacks.

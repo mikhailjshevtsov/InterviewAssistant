@@ -26,7 +26,11 @@ def test_project_star_examples_are_complete() -> None:
 
     counts = Counter(example.profession for example in examples)
     for profession, minimum in MINIMUM_PER_PROFESSION.items():
+        by_profession = [example for example in examples if example.profession == profession]
+        categories = {example.category for example in by_profession}
         assert counts[profession] >= minimum
+        assert QuestionCategory.BEHAVIORAL in categories
+        assert QuestionCategory.EXPERIENCE in categories
     assert all(isinstance(example, StarExample) for example in examples)
     assert {example.category for example in examples} <= {
         QuestionCategory.BEHAVIORAL,
