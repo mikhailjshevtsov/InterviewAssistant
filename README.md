@@ -6,10 +6,10 @@ Telegram ИИ-ассистент для подготовки к собеседо
 Создание нейроассистента, который поможет соискателям готовиться к собеседованиям: генерировать вероятные вопросы по вакансии, предлагать структурированные ответы и давать рекомендации по самопрезентации.
 
 💼 Какие бизнес-задачи закрывает:
-•	Снижение стресса и повышение уверенности кандидатов
-•	Стандартизация подготовки к типовым и поведенческим вопросам
-•	Помощь в формулировании сильных аргументов и примеров из опыта
-•	Экономия времени на поиск и структурирование информации о собеседованиях
+- Снижение стресса и повышение уверенности кандидатов
+- Стандартизация подготовки к типовым и поведенческим вопросам
+- Помощь в формулировании сильных аргументов и примеров из опыта
+- Экономия времени на поиск и структурирование информации о собеседованиях
 
 ## Стек
 
@@ -65,19 +65,19 @@ python -m app.knowledge.validate
 
 # На дальнейшее развитие
 
-•  resume upload;
-•  PDF/DOCX;
-•  mock interview;
-•  voice;
-•  RAG;
-•  vector database;
-•  Google Sheets;
-•  web UI;
-•  admin panel;
-•  authentication;
-•  i18n;
-•  export;
-•  checklist progress;
-•  social login;
-•  new professions;
-•  new question generation logic.
+- resume upload;
+- PDF/DOCX;
+- mock interview;
+- voice;
+- RAG;
+- vector database;
+- Google Sheets;
+- web UI;
+- admin panel;
+- authentication;
+- i18n;
+- export;
+- checklist progress;
+- social login;
+- new professions;
+- new question generation logic.
